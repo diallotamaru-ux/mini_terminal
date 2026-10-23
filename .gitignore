@@ -3,3 +3,9 @@ __pycache__/
 .cache/
 .pytest_cache/
 rapport*.html
+node_modules/
+frontend/dist/
+*.db
+*.sqlite3
+.coverage
+htmlcov/

@@ -1,17 +1,20 @@
 """
 Génère un rapport HTML autonome, publiable tel quel (WordPress, GitHub Pages...).
 
-    python report.py                 # paramètres de config.py, données réelles
-    python report.py --demo          # données simulées, hors ligne
-    python report.py --theme light   # fond clair, pour un article de blog
+    python legacy/report.py                 # paramètres de config.py, données réelles
+    python legacy/report.py --demo          # données simulées, hors ligne
+    python legacy/report.py --theme light   # fond clair, pour un article de blog
 """
 
 from __future__ import annotations
 
 import argparse
 import html
+import sys
 from datetime import date
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # racine du projet
 
 from config import DEFAULT
 from terminal import charts, engine, views

@@ -1,16 +1,19 @@
 """
 Mini-terminal financier — tableau de bord Streamlit.
 
-Lancement :  streamlit run app.py
+Lancement :  streamlit run legacy/app.py
 """
 
 from __future__ import annotations
 
+import sys
 from datetime import date
 from pathlib import Path
 
 import pandas as pd
 import streamlit as st
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # racine du projet
 
 from config import DEFAULT
 from terminal import engine, views
@@ -152,4 +155,4 @@ with t_table:
     st.caption("VaR et CVaR : pertes quotidiennes historiques, au seuil de 95 %.")
 
 with t_method:
-    st.markdown((Path(__file__).parent / "METHODE.md").read_text(encoding="utf-8"))
+    st.markdown((Path(__file__).resolve().parent.parent / "METHODE.md").read_text(encoding="utf-8"))

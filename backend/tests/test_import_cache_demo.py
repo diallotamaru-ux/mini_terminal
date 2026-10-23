@@ -241,6 +241,9 @@ def test_demo_mode_seeds_once_and_is_flagged():
         assert len(accounts) == 3 and {a["cash_mode"] for a in accounts} == {"avec_especes", "titres_seuls"}
         s = c.get("/api/portfolio/summary").json()
         assert s["meta"]["simulated"] is True and s["complete"] is True
+        assert s["meta"]["warnings"] == []          # jeu de démo cohérent : aucun solde négatif
+        adj = c.get("/api/portfolio/positions").json()["split_adjustments"]
+        assert [(a["ticker"], a["quantity_before"], a["quantity_after"]) for a in adj] == [("NVDA", "2", "20")]
         assert c.get("/api/meta").json()["simulated"] is True
         st = app.state.mt
         with st.db.sessionmaker() as sess:
@@ -255,3 +258,21 @@ def test_demo_on_file_database(tmp_path):
         assert c.get("/api/portfolio/summary").status_code == 200
         assert c.get("/api/portfolio/performance").status_code == 200
         assert c.get("/api/portfolio/history").status_code == 200      # instantané réutilisé, sans session
+
+
+def test_split_cache(cache):
+    from terminal.splits import Split
+    c, inner, clock, _ = cache
+    inner.split_data["AAA.PA"] = [Split("AAA.PA", dt.date(2024, 6, 10), 10, 1)]
+    assert c.splits("AAA.PA")[0].numerator == 10
+    assert c.splits("AAA.PA")[0].numerator == 10
+    assert inner.calls.count("SPLITS:AAA.PA") == 1                  # relu en base
+    clock.t += dt.timedelta(hours=7)                                # après le TTL : retéléchargé
+    inner.split_data["AAA.PA"].append(Split("AAA.PA", dt.date(2025, 1, 2), 2, 1))
+    assert len(c.splits("AAA.PA")) == 2 and inner.calls.count("SPLITS:AAA.PA") == 2
+    clock.t += dt.timedelta(hours=7)
+    inner.down.add("AAA.PA")                                        # panne : cache servi
+    assert len(c.splits("AAA.PA")) == 2
+    with pytest.raises(ProviderUnavailable):
+        c.splits("DOWN.PA")                                         # panne sans cache
+    assert c.splits("BBB.PA") == []

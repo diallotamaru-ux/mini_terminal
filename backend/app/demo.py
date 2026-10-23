@@ -5,12 +5,15 @@ Trois comptes, les deux conventions de flux, de l'USD et de la crypto :
 - PEA (avec espèces) : 400 € versés chaque mois, DCA sur deux ETF ;
 - CTO (avec espèces) : versements trimestriels, quelques actions dont une en USD ;
 - Crypto (titres seuls) : 100 € de bitcoin par mois.
+Le CTO détient aussi NVDA, divisée par 10 le 10/06/2024 (division simulée) : les
+achats antérieurs sont saisis en prix d'origine, comme sur un relevé de courtier,
+et l'application les ajuste au calcul.
 """
 
 from __future__ import annotations
 
 import datetime as dt
-from decimal import ROUND_DOWN, Decimal
+from decimal import ROUND_DOWN, ROUND_UP, Decimal
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -28,6 +31,7 @@ LISTINGS = [  # ticker, isin, nom, classe, devise
     ("MC.PA", "FR0000121014", "LVMH — démo", "action", "EUR"),
     ("ASML.AS", "NL0010273215", "ASML — démo", "action", "EUR"),
     ("BTC-EUR", None, "Bitcoin — démo", "crypto", "EUR"),
+    ("NVDA", "US67066G1040", "NVIDIA — démo", "action", "USD"),
 ]
 
 
@@ -95,6 +99,19 @@ def seed(s: Session, provider: MarketDataProvider, today: dt.date | None = None)
                 fx_rate=rate)
         if m.month == 5 and m.year > START.year:
             add(cto, "DIVIDENDE", d, listings["MC.PA"], amount=Decimal("18.40"), withholding=Decimal("7.90"))
+    # NVDA : 2 actions avant la division (prix d'origine = cours ajusté x 10), 10 après.
+    from terminal.marketdata.simulated import SIM_SPLITS
+    split_day, n, m_ = SIM_SPLITS["NVDA"][0]
+    for d, q in ((dt.date(2023, 3, 15), Decimal(2)), (dt.date(2024, 9, 16), Decimal(10))):
+        if d <= today:
+            day, p = px("NVDA", d)
+            if d < split_day:
+                p = p * n / m_
+            rate = Decimal(repr(round(float(usd.loc[:str(d)].iloc[-1]), 4)))
+            # Versement couvrant l'achat, arrondi à l'euro supérieur : le solde reste positif.
+            add(cto, "DEPOT", d, amount=((q * p + 1) * rate).quantize(Decimal(1), ROUND_UP))
+            add(cto, "ACHAT", d, listings["NVDA"], quantity=q, price=p, fees=Decimal(1), currency="USD",
+                fx_rate=rate)
     # Une prise de bénéfice partielle sur ASML.
     sell = dt.date(2024, 3, 12)
     if sell <= today:

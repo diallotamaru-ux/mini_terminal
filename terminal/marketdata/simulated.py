@@ -19,6 +19,7 @@ import pandas as pd
 
 from .. import data
 from ..errors import MissingCurrency, UnknownTicker
+from ..splits import Split
 from .base import InstrumentInfo, MarketDataProvider, PriceSeries, clean_series
 
 SIM_START = "2015-01-01"
@@ -27,6 +28,10 @@ SOURCE = "Simulation (données fictives)"
 
 _TICKER_RE = re.compile(r"^[A-Z0-9][A-Z0-9.\-^=]{0,19}$")
 _EUR_SUFFIXES = (".PA", ".AS", ".DE", ".MI", ".MC", ".BR", "-EUR")
+
+# Divisions simulées. Les cours simulés sont, comme ceux de Yahoo, déjà ajustés :
+# une transaction saisie avant la date doit l'être en prix d'origine (x 10 ici).
+SIM_SPLITS = {"NVDA": [(date(2024, 6, 10), 10, 1)]}
 
 # Niveau moyen des taux simulés (euros pour une unité de devise).
 _FX_LEVEL = {"USD": 0.90, "GBP": 1.17, "CHF": 1.03, "JPY": 0.0063, "CAD": 0.67}
@@ -78,3 +83,7 @@ class SimulatedProvider(MarketDataProvider):
         self._series(ticker)
         currency = "EUR" if ticker.endswith(_EUR_SUFFIXES) else "USD"
         return InstrumentInfo(ticker, currency, name=f"{ticker} (simulé)")
+
+    def splits(self, ticker: str) -> list[Split]:
+        self._series(ticker)
+        return [Split(ticker, d, n, m) for d, n, m in SIM_SPLITS.get(ticker, [])]

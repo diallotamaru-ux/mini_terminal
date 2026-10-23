@@ -119,9 +119,10 @@ def compute_positions(transactions: list[Transaction],
             pos.fees += tx.fees
 
         elif tx.type is TxType.VENTE:
-            share = tx.quantity / pos.quantity
-            removed = pos.cost * share
-            removed_eur = _mul(pos.cost_eur, share)
+            # Multiplier avant de diviser : 2 703 x 10 / 30 = 901 exactement, alors que
+            # 2 703 x (10 / 30) laisse un résidu (1/3 n'a pas d'écriture décimale finie).
+            removed = pos.cost * tx.quantity / pos.quantity
+            removed_eur = None if pos.cost_eur is None else pos.cost_eur * tx.quantity / pos.quantity
             proceeds = tx.gross - tx.fees
             proceeds_eur = _mul(proceeds, rate)
             pos.realized += proceeds - removed

@@ -7,6 +7,8 @@ Cache des cours en base, placé devant n'importe quel MarketDataProvider.
   servi, avec une source qui le dit (« cache du ... »). Sans cache, l'erreur
   remonte telle quelle.
 - Un changement de fournisseur invalide le cache du symbole.
+- Les divisions d'actions sont mises en cache de la même façon, retéléchargées
+  après `ttl` (une division peut être annoncée à tout moment).
 """
 
 from __future__ import annotations
@@ -21,8 +23,9 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from terminal.errors import ProviderUnavailable
 from terminal.marketdata.base import InstrumentInfo, MarketDataProvider, PriceSeries
+from terminal.splits import Split
 
-from .models import MarketBar, MarketRange
+from .models import MarketBar, MarketRange, MarketSplit
 
 
 def _utc(dt: datetime) -> datetime:
@@ -53,6 +56,35 @@ class CachedProvider(MarketDataProvider):
 
     def instrument_info(self, ticker: str) -> InstrumentInfo:
         return self.inner.instrument_info(ticker)
+
+    def splits(self, ticker: str) -> list[Split]:
+        symbol = f"SPLITS:{ticker}"
+        with self.sessions() as s:
+            rng = s.get(MarketRange, symbol)
+            fresh = (rng is not None and rng.provider == self.inner.name
+                     and self.now() - _utc(rng.fetched_at) < self.ttl)
+            if not fresh:
+                try:
+                    found = self.inner.splits(ticker)
+                except ProviderUnavailable:
+                    if rng is None or rng.provider != self.inner.name:
+                        raise
+                    found = None                 # fournisseur en panne : cache existant
+                if found is not None:
+                    s.execute(delete(MarketSplit).where(MarketSplit.ticker == ticker))
+                    s.add_all(MarketSplit(ticker=ticker, date=x.date, numerator=x.numerator,
+                                          denominator=x.denominator) for x in found)
+                    if rng is None:
+                        rng = MarketRange(symbol=symbol)
+                        s.add(rng)
+                    today = self.now().date()
+                    rng.start, rng.end = today, today
+                    rng.source, rng.provider, rng.simulated = self.inner.name, self.inner.name, self.simulated
+                    rng.fetched_at = self.now()
+                    s.commit()
+            rows = s.scalars(select(MarketSplit).where(MarketSplit.ticker == ticker)
+                             .order_by(MarketSplit.date)).all()
+            return [Split(r.ticker, r.date, r.numerator, r.denominator) for r in rows]
 
     # ------------------------------------------------------------------
 

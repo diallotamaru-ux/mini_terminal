@@ -10,6 +10,7 @@ from backend.app.config import Settings
 from backend.app.main import create_app
 from terminal.errors import MissingCurrency, ProviderUnavailable, UnknownTicker
 from terminal.marketdata.base import InstrumentInfo, MarketDataProvider, PriceSeries
+from terminal.splits import Split
 
 TODAY = dt.date.today()
 
@@ -33,6 +34,7 @@ class FixedProvider(MarketDataProvider):
                        "USX": [(60, 20.0)], "DOWN.PA": [(60, 10.0)]}
         self.fx = {"USD": 0.9}
         self.down: set[str] = {"DOWN.PA"}
+        self.split_data: dict[str, list[Split]] = {}
         self.calls: list[str] = []
 
     def _series(self, steps, start, end):
@@ -55,6 +57,12 @@ class FixedProvider(MarketDataProvider):
         if currency not in self.fx:
             raise MissingCurrency(currency)
         return PriceSeries(currency, self._series([(9999, self.fx[currency])], start, end), "Change de test")
+
+    def splits(self, ticker):
+        self.calls.append(f"SPLITS:{ticker}")
+        if ticker in self.down:
+            raise ProviderUnavailable("fixe", "panne simulée")
+        return list(self.split_data.get(ticker, []))
 
     def instrument_info(self, ticker):
         if ticker not in self.currency:

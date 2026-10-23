@@ -19,7 +19,8 @@ router = APIRouter(prefix="/api", tags=["portefeuille"])
 def positions(as_of: dt.date | None = None, s: Session = Depends(get_session),
               st: AppState = Depends(get_state)):
     snap = st.snapshot(s, as_of)
-    return schemas.PositionsOut(meta=snap.meta(), positions=svc.positions_out(snap))
+    return schemas.PositionsOut(meta=snap.meta(), positions=svc.positions_out(snap),
+                                split_adjustments=svc.adjustments_out(snap))
 
 
 @router.get("/portfolio/summary", response_model=schemas.SummaryOut)

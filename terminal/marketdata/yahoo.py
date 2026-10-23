@@ -14,6 +14,7 @@ from datetime import date, timedelta
 import pandas as pd
 
 from ..errors import MissingCurrency, ProviderUnavailable, UnknownTicker
+from ..splits import Split
 from .base import InstrumentInfo, MarketDataProvider, PriceSeries, clean_series
 
 SOURCE = "Yahoo Finance"
@@ -92,3 +93,16 @@ class YahooProvider(MarketDataProvider):
         except Exception:
             pass                       # le nom est facultatif, la devise ne l'est pas
         return InstrumentInfo(ticker, currency, name=name, exchange=exchange)
+
+    def splits(self, ticker: str) -> list[Split]:
+        yf = _yf()
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                raw = yf.Ticker(ticker).splits
+        except Exception as e:
+            raise ProviderUnavailable("yahoo", str(e)) from e
+        if raw is None or len(raw) == 0:
+            return []
+        s = clean_series(raw)
+        return [Split.from_ratio(ticker, pd.Timestamp(d).date(), float(r)) for d, r in s.items() if r > 0]

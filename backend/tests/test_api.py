@@ -241,3 +241,47 @@ def test_snapshot_is_recomputed_after_write(client, setup):
 def test_meta(client):
     m = client.get("/api/meta").json()
     assert m == {"demo": False, "provider": "fixe", "simulated": False, "version": "0.1.0"}
+
+
+# ---------------------------------------------------------------------------
+# Divisions d'actions
+# ---------------------------------------------------------------------------
+
+def test_split_adjustment_end_to_end(client, setup, provider):
+    from terminal.splits import Split
+    # USX : 2 actions achetées à 200 $ il y a 50 jours, division 10 pour 1 il y a 30 jours,
+    # cours ajusté actuel 20 $. Sans ajustement : 2 x 20 = 40 $ ; avec : 20 x 20 = 400 $.
+    provider.split_data["USX"] = [Split("USX", days_ago(30), 10, 1)]
+    s = setup["secu"]
+    post_tx(client, account_id=s, date=days_ago(50), type="ACHAT", ticker="USX", quantity="2",
+            price="200", fx_rate="0.9")
+    # Vente de 5 actions nouvelles après la division : refusée sans ajustement (5 > 2), acceptée ici.
+    r = post_tx(client, account_id=s, date=days_ago(10), type="VENTE", ticker="USX", quantity="5",
+                price="20", fx_rate="0.9")
+    assert r.status_code == 201, r.json()
+    body = client.get("/api/portfolio/positions").json()
+    pos = body["positions"][0]
+    # Ajusté : 20 actions à 20 $ (coût 400 $ = 360 €), 5 vendues à 20 $ : PV réalisée 0.
+    assert pos["quantity"] == "15" and pos["pru"] == "20.0000" and pos["realized"] == "0.00"
+    assert pos["market_value"] == "300.00" and pos["market_value_eur"] == "270.00"
+    adj = body["split_adjustments"]
+    assert len(adj) == 1
+    a = adj[0]
+    assert a["ticker"] == "USX" and a["currency"] == "USD" and a["factor"] == "10" and a["splits"][0]["label"] == "10 pour 1"
+    assert (a["quantity_before"], a["quantity_after"]) == ("2", "20")
+    assert (a["price_before"], a["price_after"]) == ("200", "20")
+    # Les données saisies ne sont pas modifiées.
+    tx = next(t for t in client.get("/api/transactions").json() if t["type"] == "ACHAT")
+    assert tx["quantity"] == "2" and tx["price"] == "200"
+    # Supprimer l'achat que la vente consomme reste refusé, en quantités ajustées.
+    assert client.delete(f"/api/transactions/{tx['id']}").status_code == 422
+
+
+def test_split_provider_down_is_reported(client, setup, provider):
+    provider.down.discard("DOWN.PA")
+    client.post("/api/listings", json={"ticker": "DOWN.PA"})
+    provider.down.add("DOWN.PA")
+    post_tx(client, account_id=setup["secu"], date=days_ago(2), type="ACHAT", ticker="DOWN.PA",
+            quantity="1", price="10")
+    w = client.get("/api/portfolio/summary").json()["meta"]["warnings"]
+    assert any("Divisions de DOWN.PA non vérifiées" in x for x in w)

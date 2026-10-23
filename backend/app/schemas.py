@@ -176,9 +176,32 @@ class PositionOut(BaseModel):
     weight: Decimal | None
 
 
+class SplitOut(BaseModel):
+    date: dt.date
+    label: str                       # « 10 pour 1 »
+
+
+class SplitAdjustmentOut(BaseModel):
+    """Ajustement appliqué au calcul ; la transaction saisie n'est pas modifiée."""
+    tx_id: int | None
+    account_id: int
+    account_name: str
+    ticker: str
+    currency: str
+    tx_date: dt.date
+    tx_type: str
+    splits: list[SplitOut]
+    factor: str                      # actions nouvelles par action saisie, ex. « 10 » ou « 3/2 »
+    quantity_before: Decimal
+    quantity_after: Decimal
+    price_before: Decimal
+    price_after: Decimal
+
+
 class PositionsOut(BaseModel):
     meta: Meta
     positions: list[PositionOut]
+    split_adjustments: list[SplitAdjustmentOut]
 
 
 class AllocationItem(BaseModel):

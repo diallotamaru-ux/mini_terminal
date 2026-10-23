@@ -103,6 +103,17 @@ class MarketBar(Base):
     value: Mapped[Decimal] = mapped_column(DecimalText)
 
 
+class MarketSplit(Base):
+    """Cache des divisions d'actions (la plage associée est « SPLITS:<ticker> » dans MarketRange)."""
+
+    __tablename__ = "market_splits"
+
+    ticker: Mapped[str] = mapped_column(String(20), primary_key=True)
+    date: Mapped[dt.date] = mapped_column(Date, primary_key=True)
+    numerator: Mapped[int]
+    denominator: Mapped[int]
+
+
 class MarketRange(Base):
     """Plage déjà téléchargée pour un symbole, avec sa source."""
 

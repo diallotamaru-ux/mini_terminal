@@ -59,7 +59,7 @@ def update_account(account_id: int, body: schemas.AccountPatch, s: Session = Dep
     if body.cash_mode is not None and body.cash_mode.value != a.cash_mode:
         # Changer de convention n'est possible que si l'historique reste cohérent
         # (un compte « titres seuls » ne peut pas contenir de dépôt).
-        check(s, accounts=[ledger.Account(a.id, a.name, body.cash_mode, a.currency)])
+        check(s, st.provider, accounts=[ledger.Account(a.id, a.name, body.cash_mode, a.currency)])
         a.cash_mode = body.cash_mode.value
     for f in ("name", "broker", "kind"):
         v = getattr(body, f)

@@ -44,6 +44,14 @@ $\mathrm{PRU} = C / q$, avec $C$ le coût des titres détenus et $q$ la quantit�
 prix $p_v$ avec des frais $f$ réalise $q_v p_v - f - \mathrm{PRU}\, q_v$ et laisse le PRU inchangé. En euros,
 chaque opération est convertie au taux du courtier s'il est saisi, sinon au taux de marché du jour.
 
+**Divisions d'actions.** Les cours du fournisseur sont ajustés des divisions, pas les transactions saisies.
+Chaque achat ou vente daté **strictement avant** la date d'effet d'une division de ratio $n/d$ (actions nouvelles
+pour anciennes : 10/1 pour une division par 10, 1/8 pour un regroupement) est ajusté au calcul :
+$q' = q\, n/d$, $p' = p\, d/n$, montant brut inchangé. Les divisions successives se cumulent. Le coût total, les frais,
+la plus-value réalisée et la valeur sont donc inchangés ; seul le PRU est exprimé par action nouvelle. Les données
+saisies ne sont jamais modifiées, et la liste des ajustements est affichée. La validation (ventes à découvert) se
+fait sur les quantités ajustées. L'historique des divisions vient du fournisseur, mis en cache en base.
+
 **Conventions de flux**, une par compte, jamais deux :
 
 | Convention | Apports $I_t$ | Retraits $O_t$ | Valeur $V_t$ |

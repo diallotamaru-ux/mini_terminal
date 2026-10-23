@@ -189,7 +189,7 @@ def import_csv(s: Session, provider: MarketDataProvider, content: bytes,
 
     if not errors:
         try:
-            warnings += _relabel(check(s, add=[c for _, c, _ in parsed],
+            warnings += _relabel(check(s, provider, add=[c for _, c, _ in parsed],
                                        listing_currency={t: n.currency for t, n in new_listings.items()}))
         except LedgerError as e:
             for msg in e.errors:

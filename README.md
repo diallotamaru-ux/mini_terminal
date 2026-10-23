@@ -59,7 +59,7 @@ La base SQLite est conservée dans le volume `mt-data`.
 ### Tests
 
 ```powershell
-.venv\Scripts\python -m pytest --cov      # 138 tests ; couverture du module de calcul : 97 %
+.venv\Scripts\python -m pytest --cov      # 153 tests ; couverture du module de calcul : 97 %
 cd frontend; npx tsc -p .                # vérification des types
 ```
 
@@ -141,8 +141,12 @@ Méthode de calcul détaillée : [`METHODE.md`](METHODE.md).
   l'autre. Chaque compte reste juste. Pour le portefeuille total, le transfert compte en revanche comme un retrait
   et un apport le même jour, au lieu de ne rien changer. Les apports nets restent justes et l'effet sur le TWR est
   très faible (le rendement de ce jour-là est légèrement amorti).
-- **Opérations sur titres non gérées** : division d'actions (les cours Yahoo sont ajustés, pas vos quantités
-  saisies), fusion, attribution gratuite, staking. Frais prélevés en crypto non gérés : les saisir en EUR.
+- **Divisions d'actions** : gérées automatiquement à partir de l'historique Yahoo (voir METHODE.md). Saisissez
+  les quantités et prix **d'origine**, tels qu'ils figuraient sur l'avis d'opération. Si un courtier a réécrit
+  votre historique en quantités déjà ajustées, saisies telles quelles, elles seraient ajustées une seconde fois :
+  vérifiez la liste des ajustements (page Positions).
+- **Autres opérations sur titres non gérées** : fusion, scission, attribution gratuite, staking. Frais prélevés en
+  crypto non gérés : les saisir en EUR.
 - **Fiscalité non calculée** : pas d'impôt latent, pas de règles PEA (plafond, retraits). Les dividendes sont
   saisis nets.
 - **Devise de référence fixe** : EUR uniquement.

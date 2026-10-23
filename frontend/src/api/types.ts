@@ -95,6 +95,22 @@ export interface Position {
   weight: Dec | null;
 }
 
+export interface SplitAdjustment {
+  tx_id: number | null;
+  account_id: number;
+  account_name: string;
+  ticker: string;
+  currency: string;
+  tx_date: string;
+  tx_type: string;
+  splits: { date: string; label: string }[];
+  factor: string;
+  quantity_before: Dec;
+  quantity_after: Dec;
+  price_before: Dec;
+  price_after: Dec;
+}
+
 export interface AllocationItem {
   key: string;
   label: string;

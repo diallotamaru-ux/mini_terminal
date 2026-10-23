@@ -79,6 +79,14 @@ class FakeTicker:
             raise RuntimeError("panne réseau")
         self.fast_info = {"currency": spec.get("currency")}
 
+    @property
+    def splits(self):
+        if self._spec.get("splits_error"):
+            raise RuntimeError("panne réseau")
+        raw = self._spec.get("splits", {})
+        idx = pd.DatetimeIndex(list(raw)).tz_localize("America/New_York")
+        return pd.Series(list(raw.values()), index=idx, dtype=float)
+
     def history(self, **kw):
         assert kw["auto_adjust"] is False            # jamais de cours ajustés des dividendes
         err = self._spec.get("error")
@@ -103,6 +111,9 @@ def yahoo(monkeypatch):
     monkeypatch.setitem(sys.modules, "yfinance", fake)
     FakeTicker.data = {
         "AAPL": {"currency": "USD", "closes": [190.0, 191.0]},
+        "NVDA": {"currency": "USD", "splits": {"2021-07-20": 4.0, "2024-06-10": 10.0}},
+        "REV": {"currency": "USD", "splits": {"2024-01-02": 0.125}},
+        "SPLITDOWN": {"currency": "USD", "splits_error": True},
         "VOD.L": {"currency": "GBp", "closes": [7000.0]},
         "USDEUR=X": {"closes": [0.91, 0.92]},
         "OLD": {"error": "OLD: possibly delisted; no data found"},
@@ -152,3 +163,21 @@ def test_yahoo_info(yahoo):
     info = yahoo.instrument_info("AAPL")
     assert info.currency == "USD" and info.name == "Nom AAPL" and info.exchange == "NMS"
     assert yahoo.instrument_info("QUIET").name is None
+
+
+def test_yahoo_splits(yahoo):
+    nv = yahoo.splits("NVDA")
+    assert [(x.date, x.numerator, x.denominator) for x in nv] == [
+        (date(2021, 7, 20), 4, 1), (date(2024, 6, 10), 10, 1)]
+    assert [(x.numerator, x.denominator) for x in yahoo.splits("REV")] == [(1, 8)]
+    assert yahoo.splits("AAPL") == []
+    with pytest.raises(ProviderUnavailable):
+        yahoo.splits("SPLITDOWN")
+
+
+def test_simulated_splits(sim):
+    s = sim.splits("NVDA")
+    assert len(s) == 1 and s[0].label == "10 pour 1" and s[0].date == date(2024, 6, 10)
+    assert sim.splits("PANX.PA") == []
+    with pytest.raises(UnknownTicker):
+        sim.splits("pas un ticker!")

@@ -10,6 +10,8 @@ Conventions
   PAS des dividendes : les dividendes sont saisis comme transactions, des cours
   ajustés les compteraient deux fois.
 - `fx_rates(devise)` renvoie le nombre d'euros pour une unité de `devise`.
+- `splits(ticker)` renvoie l'historique complet des divisions, qui sert à
+  ajuster les transactions saisies avant chacune (voir terminal/splits.py).
 - Index : dates calendaires sans fuseau horaire, triées, sans doublon.
 """
 
@@ -20,6 +22,8 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 
 import pandas as pd
+
+from ..splits import Split
 
 
 @dataclass(frozen=True)
@@ -70,3 +74,7 @@ class MarketDataProvider(ABC):
     @abstractmethod
     def instrument_info(self, ticker: str) -> InstrumentInfo:
         """Devise et nom de la cotation. Lève UnknownTicker ou ProviderUnavailable."""
+
+    @abstractmethod
+    def splits(self, ticker: str) -> list[Split]:
+        """Divisions et regroupements de `ticker`, du plus ancien au plus récent. Liste vide s'il n'y en a pas."""

@@ -9,6 +9,7 @@ import type {
   Performance,
   Position,
   Meta,
+  SplitAdjustment,
   Summary,
   Transaction,
   TransactionIn,
@@ -69,7 +70,8 @@ export const api = {
     return request<ImportReport>(`/api/imports/csv?dry_run=${dryRun}`, { method: "POST", body: fd });
   },
   summary: () => request<Summary>("/api/portfolio/summary"),
-  positions: () => request<{ meta: Meta; positions: Position[] }>("/api/portfolio/positions"),
+  positions: () =>
+    request<{ meta: Meta; positions: Position[]; split_adjustments: SplitAdjustment[] }>("/api/portfolio/positions"),
   history: () => request<History>("/api/portfolio/history"),
   performance: () => request<Performance>("/api/portfolio/performance"),
 };

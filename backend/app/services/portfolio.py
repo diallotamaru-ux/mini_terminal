@@ -24,6 +24,7 @@ from terminal import ledger, performance
 from terminal.errors import MissingCurrency, ProviderUnavailable, UnknownTicker
 from terminal.marketdata.base import MarketDataProvider, PriceSeries
 from terminal.positions import Position, cash_balances, compute_positions, transaction_rate
+from terminal.splits import Adjustment, Split, adjust_for_splits
 from terminal.valuation import MAX_STALE_DAYS, History, build_history
 
 from .. import models, schemas
@@ -59,6 +60,23 @@ def load_ledger(s: Session) -> tuple[list[models.Account], list[ledger.Account],
     return accounts, [to_core_account(a) for a in accounts], [to_core_tx(t) for t in txs], listings
 
 
+def load_splits(provider: MarketDataProvider, tickers) -> tuple[dict[str, list[Split]], list[str]]:
+    """Divisions connues pour chaque ticker. Une panne du fournisseur est signalée, pas masquée."""
+    out: dict[str, list[Split]] = {}
+    warnings: list[str] = []
+    for t in sorted(set(tickers)):
+        try:
+            found = provider.splits(t)
+        except UnknownTicker:
+            continue                     # signalé par ailleurs (cours introuvables)
+        except ProviderUnavailable as e:
+            warnings.append(f"Divisions de {t} non vérifiées, quantités non ajustées : {e}")
+            continue
+        if found:
+            out[t] = found
+    return out, warnings
+
+
 @dataclass(frozen=True)
 class AccountInfo:
     """Copie détachée d'un compte : l'instantané est partagé entre requêtes, sans session."""
@@ -92,6 +110,7 @@ class Snapshot:
     positions: dict[tuple[int, str], Position]
     cash: dict[int, Decimal | None]
     warnings: list[str] = field(default_factory=list)
+    adjustments: list[Adjustment] = field(default_factory=list)
     generated_at: dt.datetime = field(default_factory=lambda: dt.datetime.now(dt.timezone.utc))
 
     # --- Cours et taux à une date ------------------------------------------
@@ -174,7 +193,9 @@ def snapshot(s: Session, provider: MarketDataProvider, as_of: dt.date | None = N
     listings = {t: ListingInfo(t, l.currency, l.instrument.name, l.instrument.isin, l.instrument.asset_class)
                 for t, l in orm_listings.items()}
     s.rollback()          # fin de la lecture : le fournisseur peut écrire son cache
-    warnings = ledger.validate(core_accounts, txs, {t: l.currency for t, l in listings.items()})
+    splits, warnings = load_splits(provider, (t.ticker for t in txs if t.ticker))
+    txs, adjustments = adjust_for_splits(txs, splits)
+    warnings += ledger.validate(core_accounts, txs, {t: l.currency for t, l in listings.items()})
     txs = [t for t in txs if t.date <= as_of]
 
     series: dict[str, PriceSeries] = {}
@@ -194,7 +215,7 @@ def snapshot(s: Session, provider: MarketDataProvider, as_of: dt.date | None = N
                 warnings.append(str(e))
 
     snap = Snapshot(as_of, provider, accounts, core_accounts, txs, listings, series, fx_series,
-                    None, {}, {}, warnings)
+                    None, {}, {}, warnings, adjustments=[a for a in adjustments if a.tx_date <= as_of])
     if txs:
         snap.history = build_history(core_accounts, txs, {t: p.closes for t, p in series.items()},
                                      {c: p.closes for c, p in fx_series.items()}, end=as_of)
@@ -254,6 +275,28 @@ def positions_out(snap: Snapshot) -> list[schemas.PositionOut]:
         if r.is_open:
             r.weight = _q(_weight(r.market_value_eur, total), Decimal("0.0001"))
     return rows
+
+
+def adjustments_out(snap: Snapshot) -> list[schemas.SplitAdjustmentOut]:
+    names = {a.id: a.name for a in snap.accounts}
+    out = []
+    for a in sorted(snap.adjustments, key=lambda a: (a.ticker, a.tx_date, a.tx_id or 0)):
+        f = a.factor
+        out.append(schemas.SplitAdjustmentOut(
+            tx_id=a.tx_id, account_id=a.account_id, account_name=names.get(a.account_id, str(a.account_id)),
+            ticker=a.ticker, currency=snap.listings[a.ticker].currency if a.ticker in snap.listings else "",
+            tx_date=a.tx_date, tx_type=a.tx_type,
+            splits=[schemas.SplitOut(date=x.date, label=x.label) for x in a.splits],
+            factor=str(f.numerator) if f.denominator == 1 else f"{f.numerator}/{f.denominator}",
+            quantity_before=a.quantity_before, quantity_after=_normal(a.quantity_after),
+            price_before=a.price_before, price_after=_normal(a.price_after)))
+    return out
+
+
+def _normal(v: Decimal) -> Decimal:
+    """Décimal sans zéros inutiles, arrondi à 10 décimales (un 1/3 n'a pas d'écriture finie)."""
+    v = v.quantize(Decimal("1e-10")).normalize()
+    return v if v.as_tuple().exponent <= 0 else v.quantize(Decimal(1))
 
 
 def summary_total(snap: Snapshot, rows: list[schemas.PositionOut]) -> Decimal | None:

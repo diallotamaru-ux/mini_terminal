@@ -65,7 +65,7 @@ def list_transactions(account_id: int | None = None, s: Session = Depends(get_se
 def create_transaction(body: schemas.TransactionIn, s: Session = Depends(get_session),
                        st: AppState = Depends(get_state)):
     listing, currency = _resolve(s, body)
-    check(s, add=[_core(body, currency, None)])
+    check(s, st.provider, add=[_core(body, currency, None)])
     t = models.Transaction()
     _apply(t, body, listing, currency)
     s.add(t)
@@ -82,7 +82,7 @@ def update_transaction(tx_id: int, body: schemas.TransactionIn, s: Session = Dep
     if t is None:
         raise HTTPException(404, "Transaction introuvable.")
     listing, currency = _resolve(s, body)
-    check(s, add=[_core(body, currency, tx_id)], remove_ids={tx_id})
+    check(s, st.provider, add=[_core(body, currency, tx_id)], remove_ids={tx_id})
     _apply(t, body, listing, currency)
     s.commit()
     st.touch()
@@ -95,7 +95,7 @@ def delete_transaction(tx_id: int, s: Session = Depends(get_session), st: AppSta
     t = s.get(models.Transaction, tx_id)
     if t is None:
         raise HTTPException(404, "Transaction introuvable.")
-    check(s, remove_ids={tx_id})
+    check(s, st.provider, remove_ids={tx_id})
     s.delete(t)
     s.commit()
     st.touch()

@@ -2,14 +2,14 @@ import { useState } from "react";
 
 import { usePositions } from "../api/client";
 import { Card, ErrorBox, Loading, Source, Warnings } from "../components/ui";
-import { date, money, num, pct, qty, signClass, signedMoney } from "../lib/format";
+import { date, money, num, pct, qty, signClass, signedMoney, TX_LABEL } from "../lib/format";
 
 export default function Positions() {
   const q = usePositions();
   const [closed, setClosed] = useState(false);
   if (q.isLoading) return <Loading />;
   if (q.error) return <ErrorBox error={q.error} />;
-  const { meta, positions } = q.data!;
+  const { meta, positions, split_adjustments: splits } = q.data!;
   const open = positions.filter((p) => p.is_open);
   const done = positions.filter((p) => !p.is_open);
 
@@ -89,6 +89,41 @@ export default function Positions() {
         </p>
         <Source meta={meta} />
       </Card>
+
+      {splits.length > 0 && (
+        <Card title={`Ajustements pour divisions d'actions (${splits.length})`}
+              aside={<span className="text-xs text-muted">appliqués au calcul ; vos transactions saisies ne sont pas modifiées</span>}>
+          <p className="mb-2 text-xs text-ink-2">
+            Les cours du fournisseur sont ajustés des divisions. Chaque achat ou vente antérieur à une division
+            est donc converti en actions nouvelles : quantité × ratio, prix ÷ ratio. Le montant de l'opération,
+            le coût total et les plus-values sont inchangés.
+          </p>
+          <div className="overflow-x-auto">
+            <table className="data">
+              <thead>
+                <tr><th>Titre</th><th>Opération</th><th>Compte</th><th>Division</th>
+                  <th className="r">Quantité saisie</th><th className="r">Quantité retenue</th>
+                  <th className="r">Prix saisi</th><th className="r">Prix retenu</th></tr>
+              </thead>
+              <tbody>
+                {splits.map((a, i) => (
+                  <tr key={i}>
+                    <td className="font-medium">{a.ticker}</td>
+                    <td className="num">{TX_LABEL[a.tx_type as keyof typeof TX_LABEL] ?? a.tx_type} du {date(a.tx_date)}</td>
+                    <td className="text-ink-2">{a.account_name}</td>
+                    <td>{a.splits.map((s) => `${s.label} le ${date(s.date)}`).join(", ")}{a.splits.length > 1 ? ` (× ${a.factor})` : ""}</td>
+                    <td className="r num">{qty(a.quantity_before)}</td>
+                    <td className="r num">{qty(a.quantity_after)}</td>
+                    <td className="r num">{money(a.price_before, a.currency || "EUR")}</td>
+                    <td className="r num">{money(a.price_after, a.currency || "EUR")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <Source meta={meta} />
+        </Card>
+      )}
 
       <Card title={`Positions soldées (${done.length})`}
             aside={<button className="text-xs text-accent underline" onClick={() => setClosed(!closed)}>{closed ? "Masquer" : "Afficher"}</button>}>

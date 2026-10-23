@@ -324,6 +324,46 @@ def risk_contributions(returns: pd.DataFrame, weights: pd.Series) -> pd.Series:
 
 
 # ---------------------------------------------------------------------------
+# Incertitude et clôtures non synchrones
+# ---------------------------------------------------------------------------
+
+def sharpe_ci(sr_annual: float, n: int, periods: int = TRADING_DAYS,
+              level: float = 0.95) -> tuple[float, float]:
+    """
+    Intervalle de confiance d'un Sharpe annualisé (Lo, 2002), rendements i.i.d. :
+    SR_p = SR / sqrt(A)                          (Sharpe par période)
+    SE_p = sqrt( (1 + SR_p^2 / 2) / n )          (erreur-type par période)
+    IC   = SR -/+ z x SE_p x sqrt(A)             (z = 1,96 à 95 %)
+    S'applique aussi au ratio d'information, Sharpe des rendements actifs.
+    """
+    from scipy.stats import norm
+
+    if n < 2 or not np.isfinite(sr_annual):
+        return (np.nan, np.nan)
+    z = norm.ppf(0.5 + level / 2.0)
+    srp = sr_annual / np.sqrt(periods)
+    half = z * np.sqrt((1.0 + srp ** 2 / 2.0) / n) * np.sqrt(periods)
+    return (float(sr_annual - half), float(sr_annual + half))
+
+
+def dimson_beta(returns: pd.Series, bench: pd.Series, lags: int = 1) -> float:
+    """
+    Bêta de Dimson (1979) : somme des pentes de la régression multiple
+    r_t = a + sum_{k=-lags..lags} b_k x m_{t+k} + e_t.
+    Corrige le biais vers le bas du bêta quand les clôtures ne sont pas
+    synchrones (une partie de la réaction est décalée d'une période).
+    """
+    df = pd.concat([returns.rename("r"), bench.rename("m")], axis=1).dropna()
+    cols = {f"m{k:+d}": df["m"].shift(-k) for k in range(-lags, lags + 1)}
+    x = pd.DataFrame(cols).assign(r=df["r"]).dropna()
+    if len(x) <= 2 * lags + 2:
+        return np.nan
+    design = np.column_stack([np.ones(len(x))] + [x[c].to_numpy() for c in cols])
+    coef, *_ = np.linalg.lstsq(design, x["r"].to_numpy(), rcond=None)
+    return float(coef[1:].sum())
+
+
+# ---------------------------------------------------------------------------
 # Séries glissantes
 # ---------------------------------------------------------------------------
 

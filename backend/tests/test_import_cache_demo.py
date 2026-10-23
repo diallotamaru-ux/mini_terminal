@@ -93,6 +93,11 @@ def test_example_file_preview_then_commit_then_reimport(sim_client):
     assert len(sim_client.get("/api/transactions").json()) == 13
     s = sim_client.get("/api/portfolio/summary").json()
     assert s["meta"]["simulated"] is True and s["total_value_eur"] is not None
+    # L'exemple est cohérent : aucun compte avec espèces ne passe en solde négatif.
+    assert not [w for w in s["meta"]["warnings"] if "négatif" in w]
+    # CTO : 2000 - 372 x 0,915 + 0,41 x 0,92 - 813,40 - 0,99 + 191,10 x 0,923 - 200 = 821,99
+    cto = next(a for a in s["accounts"] if a["name"] == "CTO Trade Republic")
+    assert cto["cash_eur"] == "821.99"
 
 
 def test_import_is_atomic_and_reports_lines(sim_client):
@@ -240,3 +245,13 @@ def test_demo_mode_seeds_once_and_is_flagged():
         st = app.state.mt
         with st.db.sessionmaker() as sess:
             assert demo.seed(sess, st.provider) is False
+
+
+def test_demo_on_file_database(tmp_path):
+    # Base fichier (et non en mémoire) : plusieurs connexions, comme en production.
+    # Régression : le pré-remplissage et le calcul bloquaient la base (« database is locked »).
+    app = create_app(Settings(demo=True), database_url=f"sqlite:///{(tmp_path / 'd.db').as_posix()}")
+    with TestClient(app) as c:
+        assert c.get("/api/portfolio/summary").status_code == 200
+        assert c.get("/api/portfolio/performance").status_code == 200
+        assert c.get("/api/portfolio/history").status_code == 200      # instantané réutilisé, sans session

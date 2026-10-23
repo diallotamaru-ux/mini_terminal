@@ -1,7 +1,7 @@
 date;compte;type;ticker;isin;quantite;prix;montant;frais;devise;taux_change;retenue;note;classe
 2024-01-05;PEA Fortuneo;DEPOT;;;;;500;;EUR;;;Versement mensuel (montants fictifs);
 2024-01-08;PEA Fortuneo;ACHAT;PANX.PA;FR0011871110;4;56,20;;0;EUR;;;DCA Nasdaq 100;etf
-2024-01-10;CTO Trade Republic;DEPOT;;;;;1000;;EUR;;;;
+2024-01-10;CTO Trade Republic;DEPOT;;;;;2000;;EUR;;;;
 2024-01-10;CTO Trade Republic;ACHAT;AAPL;US0378331005;2;185,50;;1;USD;0,9150;;Achat réglé en EUR au taux du courtier;action
 2024-01-15;Crypto;ACHAT;BTC-EUR;;0,00235000;39500;;1,50;EUR;;;DCA bitcoin;crypto
 2024-02-05;PEA Fortuneo;DEPOT;;;;;500;;EUR;;;;

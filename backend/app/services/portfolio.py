@@ -59,14 +59,33 @@ def load_ledger(s: Session) -> tuple[list[models.Account], list[ledger.Account],
     return accounts, [to_core_account(a) for a in accounts], [to_core_tx(t) for t in txs], listings
 
 
+@dataclass(frozen=True)
+class AccountInfo:
+    """Copie détachée d'un compte : l'instantané est partagé entre requêtes, sans session."""
+    id: int
+    name: str
+    kind: str
+    cash_mode: str
+    currency: str
+
+
+@dataclass(frozen=True)
+class ListingInfo:
+    ticker: str
+    currency: str
+    name: str | None
+    isin: str | None
+    asset_class: str
+
+
 @dataclass
 class Snapshot:
     as_of: dt.date
     provider: MarketDataProvider
-    accounts: list[models.Account]
+    accounts: list[AccountInfo]
     core_accounts: list[ledger.Account]
     txs: list[ledger.Transaction]
-    listings: dict[str, models.Listing]
+    listings: dict[str, ListingInfo]
     series: dict[str, PriceSeries]
     fx_series: dict[str, PriceSeries]
     history: History | None
@@ -150,7 +169,11 @@ def _last_on_or_before(s: pd.Series, d: dt.date) -> tuple[dt.date, float] | None
 
 def snapshot(s: Session, provider: MarketDataProvider, as_of: dt.date | None = None) -> Snapshot:
     as_of = as_of or dt.date.today()
-    accounts, core_accounts, txs, listings = load_ledger(s)
+    orm_accounts, core_accounts, txs, orm_listings = load_ledger(s)
+    accounts = [AccountInfo(a.id, a.name, a.kind, a.cash_mode, a.currency) for a in orm_accounts]
+    listings = {t: ListingInfo(t, l.currency, l.instrument.name, l.instrument.isin, l.instrument.asset_class)
+                for t, l in orm_listings.items()}
+    s.rollback()          # fin de la lecture : le fournisseur peut écrire son cache
     warnings = ledger.validate(core_accounts, txs, {t: l.currency for t, l in listings.items()})
     txs = [t for t in txs if t.date <= as_of]
 
@@ -208,8 +231,7 @@ def positions_out(snap: Snapshot) -> list[schemas.PositionOut]:
     names = {a.id: a.name for a in snap.accounts}
     rows = []
     for (acc, ticker), p in sorted(snap.positions.items(), key=lambda kv: (kv[0][0], kv[0][1])):
-        listing = snap.listings.get(ticker)
-        inst = listing.instrument if listing else None
+        inst = snap.listings.get(ticker)
         price, price_date, stale, source = snap.quote(ticker) if p.is_open else (None, None, False, None)
         fx = snap.fx_now(p.currency) if p.is_open else None
         mv = p.market_value(price) if p.is_open else Decimal(0)

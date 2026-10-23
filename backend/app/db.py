@@ -49,6 +49,9 @@ def make_engine(url: str) -> Engine:
     def _sqlite_pragmas(dbapi_conn, _):
         cur = dbapi_conn.cursor()
         cur.execute("PRAGMA foreign_keys=ON")
+        if url != "sqlite://":
+            # WAL : une lecture en cours ne bloque pas l'écriture du cache des cours.
+            cur.execute("PRAGMA journal_mode=WAL")
         cur.close()
 
     return engine

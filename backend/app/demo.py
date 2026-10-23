@@ -43,6 +43,11 @@ def seed(s: Session, provider: MarketDataProvider, today: dt.date | None = None)
     if s.scalar(select(models.Account).limit(1)) is not None:
         return False
     today = today or dt.date.today()
+    # Cours d'abord : le cache écrit dans sa propre session, qui ne doit pas
+    # attendre une écriture ouverte ici (SQLite n'a qu'un écrivain à la fois).
+    lookback = START - dt.timedelta(days=10)
+    closes = {t[0]: provider.daily_closes(t[0], lookback, today).closes for t in LISTINGS}
+    usd = provider.fx_rates("USD", lookback, today).closes
     pea = models.Account(name="PEA Fortuneo (démo)", broker="Fortuneo", kind="PEA", cash_mode="avec_especes")
     cto = models.Account(name="CTO Trade Republic (démo)", broker="Trade Republic", kind="CTO",
                          cash_mode="avec_especes")
@@ -55,8 +60,6 @@ def seed(s: Session, provider: MarketDataProvider, today: dt.date | None = None)
     s.add_all(listings.values())
     s.flush()
 
-    closes = {t: provider.daily_closes(t, START - dt.timedelta(days=10), today).closes for t in listings}
-    usd = provider.fx_rates("USD", START - dt.timedelta(days=10), today).closes
 
     def px(ticker: str, d: dt.date) -> tuple[dt.date, Decimal]:
         s_ = closes[ticker].loc[:str(d)]

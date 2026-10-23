@@ -10,6 +10,9 @@ Fréquences :
   (17 h 30) et de New York (22 h, heure de Paris). Scholes et Williams (1977),
   Dimson (1979).
 
+Intervalles de confiance : Sharpe et ratio d'information, robustes à
+l'autocorrélation (Lo, 2002, estimateur GMM avec Newey-West).
+
 Le taux sans risque varie dans le temps : les fonctions de `metrics` reçoivent
 des rendements excédentaires r_t - rf_t avec rf_annual = 0, ce qui est la même
 formule avec un taux variable.
@@ -234,7 +237,7 @@ def risk_row(name: str, kind: str, r: pd.Series, rf: pd.Series, ref: pd.Series |
     row.volatility = _num(m.annual_volatility(r))
     row.sharpe = _num(m.sharpe_ratio(ex, 0.0))
     if row.sharpe is not None:
-        row.sharpe_ci = m.sharpe_ci(row.sharpe, len(ex))
+        row.sharpe_ci = m.sharpe_ci_hac(ex)
     row.sortino = _num(m.sortino_ratio(ex, 0.0))
     row.calmar = _num(m.calmar_ratio(r))
 
@@ -256,7 +259,7 @@ def risk_row(name: str, kind: str, r: pd.Series, rf: pd.Series, ref: pd.Series |
             row.tracking_error = _num(m.tracking_error(rw, bw, periods=WEEKLY))
             row.information_ratio = _num(m.information_ratio(rw, bw, periods=WEEKLY))
             if row.information_ratio is not None:
-                row.information_ratio_ci = m.sharpe_ci(row.information_ratio, row.n_weeks, periods=WEEKLY)
+                row.information_ratio_ci = m.sharpe_ci_hac((rw - bw).dropna(), periods=WEEKLY)
 
     if span_days < DAYS_PER_YEAR:
         for f in ANNUALIZED:

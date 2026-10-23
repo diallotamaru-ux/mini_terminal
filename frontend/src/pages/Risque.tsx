@@ -109,7 +109,7 @@ export default function Risque() {
             </div>
 
             <Card title="Tableau comparatif"
-                  aside={<span className="text-xs text-muted">IC 95 % entre crochets (Lo, 2002) · « hebdo. » : rendements hebdomadaires</span>}>
+                  aside={<span className="text-xs text-muted">IC 95 % entre crochets, robuste à l'autocorrélation (Lo, 2002) · « hebdo. » : rendements hebdomadaires</span>}>
               <p className="mb-2 text-xs text-ink-2">
                 Taux sans risque : {d.risk_free.label} ({d.risk_free.source}
                 {d.risk_free.last_date ? `, dernière valeur ${d.risk_free.last_value?.toLocaleString("fr-FR")} % au ${date(d.risk_free.last_date)}` : ""}).

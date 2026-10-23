@@ -129,10 +129,36 @@ QQQ donne +20,766 %, contre +20,773 % pour la clôture ajustée de Yahoo (métho
 | **QQQ** (Invesco, New York, USD) | Nasdaq 100 | Frais de 0,18 %/an inclus dans le cours. Retenue de 15 % (convention France – États-Unis) appliquée par hypothèse. Un particulier français ne peut pas acheter QQQ (fonds américain non UCITS) : c'est un indicateur, pas un placement accessible. Conversion en EUR au taux Yahoo du jour, relevé à une autre heure que la clôture de New York. |
 | **IWDA.AS** (iShares Core MSCI World, Amsterdam, EUR) | MSCI World (USD) | Frais de 0,20 %/an. Fonds irlandais capitalisant : les dividendes sont réinvestis dans le fonds, après la retenue qu'il subit (15 % sur les dividendes américains grâce à la convention Irlande – États-Unis, contre 30 % dans l'indice MSCI World Net). Il peut donc battre légèrement son indice net. Fonds en USD coté en EUR : le cours en euros intègre le change, ce qui est voulu. Vérification empirique, Yahoo ne donnant ni ISIN ni description : 11,91 %/an de 2015 à 2026, contre 11,98 % pour URTH converti en EUR. |
 
-**Incertitude.** Intervalle de confiance à 95 % de Lo (2002), pour des rendements i.i.d. : $SR_p = SR/\sqrt{A}$,
-$SE_p = \sqrt{(1 + SR_p^2/2)/n}$, $IC = SR \pm 1{,}96\, SE_p \sqrt{A}$. Il s'applique au Sharpe (quotidien) et au
-ratio d'information (hebdomadaire). Sur 3 ans, la demi-largeur vaut environ 1,13. L'autocorrélation des rendements
-rend cet intervalle trop étroit.
+**Incertitude.** Intervalle de confiance à 95 % du Sharpe (quotidien) et du ratio d'information (hebdomadaire),
+**robuste à l'autocorrélation**, d'après Lo (2002, rendements non i.i.d., estimateur GMM). Avec $\theta = (\mu, \sigma^2)$
+et $SR = g(\theta) = \mu/\sigma$ :
+$$h_t = \big(r_t - \mu,\ (r_t - \mu)^2 - \sigma^2\big), \qquad
+S = \Gamma_0 + \sum_{j=1}^{L}\Big(1 - \tfrac{j}{L+1}\Big)(\Gamma_j + \Gamma_j^\top), \qquad
+V = \nabla g^\top S\, \nabla g,\ \ \nabla g = \Big(\tfrac{1}{\sigma},\ -\tfrac{\mu}{2\sigma^3}\Big),$$
+avec $\Gamma_j$ l'autocovariance d'ordre $j$ des moments et $L = \lfloor 4\,(n/100)^{2/9} \rfloor$ retards (Newey et West :
+6 pour 3 ans de séances, 4 pour 3 ans de semaines). Puis $SE_p = \sqrt{V/n}$ et $IC = SR \pm 1{,}96\, SE_p \sqrt{A}$,
+centré sur le Sharpe affiché.
+
+Version i.i.d., conservée en comparaison (`metrics.sharpe_ci`) : $V = 1 + SR_p^2/2$, que l'on retrouve exactement
+quand les rendements sont gaussiens et sans autocorrélation (test `test_sharpe_ci_hac_matches_iid_without_autocorrelation`).
+Pour une autocorrélation d'ordre 1 de 0,5, l'intervalle robuste est $\sqrt{3}$ fois plus large (test
+`test_sharpe_ci_hac_widens_with_positive_autocorrelation`).
+
+Sur données réelles, la version robuste n'élargit pas toujours l'intervalle. Elle corrige deux choses : l'autocorrélation
+(une autocorrélation négative le resserre) et l'hypothèse gaussienne (des queues épaisses l'élargissent). Mesures sur
+3 ans de séances, au 22/10/2026 :
+
+| Série | Sharpe | IC i.i.d. | IC robuste | Autocorrélation d'ordre 1 |
+|---|---|---|---|---|
+| CW8.PA | 1,43 | [0,30 ; 2,56] | [0,17 ; 2,69] | −0,023 |
+| IWDA.AS | 1,46 | [0,33 ; 2,59] | [0,20 ; 2,72] | −0,020 |
+| QQQ | 1,22 | [0,08 ; 2,35] | [0,14 ; 2,30] | −0,062 |
+| BTC-EUR | 0,88 | [−0,24 ; 1,99] | [−0,20 ; 1,95] | −0,048 |
+
+Lo (2002) montre aussi qu'avec de l'autocorrélation, annualiser un Sharpe par $\sqrt{A}$ est biaisé, et propose le
+facteur $\eta(q) = q / \sqrt{q + 2\sum_{k=1}^{q-1}(q-k)\rho_k}$ au lieu de $\sqrt{q}$. Il n'est **pas** appliqué : le
+Sharpe affiché reste celui de `metrics.sharpe_ratio`. L'avertissement « historique court » donne la demi-largeur
+i.i.d. d'un Sharpe nul, comme ordre de grandeur.
 
 **Règles d'affichage.** Aucun indicateur annualisé sur moins d'un an. Avertissement visible sous 3 ans d'historique.
 Mesures relatives masquées sous 26 semaines. Une valeur manquante rend la série incomplète, et rien n'est calculé.

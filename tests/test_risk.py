@@ -177,7 +177,7 @@ def test_full_row_reuses_metrics():
     row = risk.risk_row("Portefeuille", "portefeuille", r, rf, ref, span_days=1260)
     assert row.complete and row.n_days == 900 and row.n_weeks == 180
     assert row.sharpe == pytest.approx(m.sharpe_ratio(r - rf, 0.0))
-    assert row.sharpe_ci == pytest.approx(m.sharpe_ci(row.sharpe, 900))
+    assert row.sharpe_ci == pytest.approx(m.sharpe_ci_hac(r - rf))           # robuste à l'autocorrélation
     assert row.volatility == pytest.approx(m.annual_volatility(r))
     assert row.max_drawdown == pytest.approx(m.max_drawdown(r))
     rw, bw, fw = risk.to_weekly(r)[0], risk.to_weekly(ref)[0], risk.to_weekly(rf)[0]
@@ -222,3 +222,52 @@ def test_missing_value_makes_row_incomplete():
     assert not risk.risk_row("P", "portefeuille", r, rf, ref, span_days=430).complete
     empty = risk.risk_row("P", "portefeuille", pd.Series(dtype=float), pd.Series(dtype=float), None, 0)
     assert not empty.complete and empty.notes["serie"] == "aucune donnée"
+
+
+# ---------------------------------------------------------------------------
+# Intervalle robuste à l'autocorrélation (Lo, 2002, GMM + Newey-West)
+# ---------------------------------------------------------------------------
+
+def test_sharpe_ci_hac_hand_example_without_lags():
+    # r = [2 %, -1 %, 3 %, 0 %], sans retard (L = 0), sans annualisation (A = 1).
+    # mu = 0,01 ; d = [0,01 ; -0,02 ; 0,02 ; -0,01] ; sigma^2 = mean(d^2) = 2,5e-4 ; sigma = 0,0158114
+    # moments h2 = d^2 - sigma^2 = [-1,5 ; 1,5 ; 1,5 ; -1,5] x 1e-4
+    # S11 = 2,5e-4 ; S12 = mean(d x h2) = 0 ; S22 = mean(h2^2) = 2,25e-8
+    # V = S11 / sigma^2 + (mu / (2 sigma^3))^2 x S22 = 1 + 1264,91^2 x 2,25e-8 = 1,036
+    # SE = sqrt(1,036 / 4) = 0,508920 ; Sharpe affiché (écart-type ddof = 1) = 0,01 / 0,0182574 = 0,547723
+    # demi-largeur = 1,959964 x 0,508920 = 0,997465 -> IC = [-0,449742 ; 1,545188]
+    r = pd.Series([0.02, -0.01, 0.03, 0.00])
+    lo, hi = m.sharpe_ci_hac(r, periods=1, lags=0)
+    assert lo == pytest.approx(-0.449742, abs=1e-5) and hi == pytest.approx(1.545188, abs=1e-5)
+
+
+def test_sharpe_ci_hac_matches_iid_without_autocorrelation():
+    # Rendements gaussiens i.i.d. : la version robuste retrouve la version i.i.d. (V = 1 + SR_p^2 / 2).
+    rng = np.random.default_rng(21)
+    r = pd.Series(rng.normal(0.0005, 0.01, 200_000))
+    sr = m.sharpe_ratio(r, 0.0)
+    lo_h, hi_h = m.sharpe_ci_hac(r)
+    lo_i, hi_i = m.sharpe_ci(sr, len(r))
+    assert (hi_h - lo_h) == pytest.approx(hi_i - lo_i, rel=0.03)
+    assert (lo_h + hi_h) / 2 == pytest.approx(sr)
+
+
+def test_sharpe_ci_hac_widens_with_positive_autocorrelation():
+    # AR(1) de coefficient 0,5 : la variance de long terme de la moyenne est multipliée par
+    # (1 + rho) / (1 - rho) = 3. Pour un Sharpe petit, l'intervalle s'élargit d'environ sqrt(3) = 1,73.
+    rng = np.random.default_rng(22)
+    e = rng.normal(0, 0.01, 200_000)
+    x = np.empty_like(e)
+    x[0] = e[0]
+    for t in range(1, len(e)):
+        x[t] = 0.5 * x[t - 1] + e[t]
+    r = pd.Series(x + 0.0002)
+    lo_h, hi_h = m.sharpe_ci_hac(r, lags=50)
+    lo_i, hi_i = m.sharpe_ci(m.sharpe_ratio(r, 0.0), len(r))
+    assert (hi_h - lo_h) / (hi_i - lo_i) == pytest.approx(np.sqrt(3), rel=0.08)
+
+
+def test_sharpe_ci_hac_edge_cases_and_lags():
+    assert m.newey_west_lags(756) == 6 and m.newey_west_lags(156) == 4
+    assert all(np.isnan(v) for v in m.sharpe_ci_hac(pd.Series([0.01, 0.02])))
+    assert all(np.isnan(v) for v in m.sharpe_ci_hac(pd.Series([0.01] * 10)))

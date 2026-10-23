@@ -330,7 +330,8 @@ def risk_contributions(returns: pd.DataFrame, weights: pd.Series) -> pd.Series:
 def sharpe_ci(sr_annual: float, n: int, periods: int = TRADING_DAYS,
               level: float = 0.95) -> tuple[float, float]:
     """
-    Intervalle de confiance d'un Sharpe annualisé (Lo, 2002), rendements i.i.d. :
+    Intervalle de confiance d'un Sharpe annualisé (Lo, 2002), rendements i.i.d.
+    (comparaison ; l'application utilise sharpe_ci_hac, robuste à l'autocorrélation) :
     SR_p = SR / sqrt(A)                          (Sharpe par période)
     SE_p = sqrt( (1 + SR_p^2 / 2) / n )          (erreur-type par période)
     IC   = SR -/+ z x SE_p x sqrt(A)             (z = 1,96 à 95 %)
@@ -344,6 +345,52 @@ def sharpe_ci(sr_annual: float, n: int, periods: int = TRADING_DAYS,
     srp = sr_annual / np.sqrt(periods)
     half = z * np.sqrt((1.0 + srp ** 2 / 2.0) / n) * np.sqrt(periods)
     return (float(sr_annual - half), float(sr_annual + half))
+
+
+def newey_west_lags(n: int) -> int:
+    """Nombre de retards de Newey et West (1994) : floor(4 (n / 100)^(2/9))."""
+    return int(np.floor(4.0 * (n / 100.0) ** (2.0 / 9.0)))
+
+
+def sharpe_ci_hac(returns: pd.Series, periods: int = TRADING_DAYS, level: float = 0.95,
+                  lags: int | None = None) -> tuple[float, float]:
+    """
+    Intervalle de confiance du Sharpe robuste à l'autocorrélation (Lo, 2002,
+    rendements non i.i.d., estimateur GMM). `returns` : rendements excédentaires.
+
+    theta = (mu, sigma^2), SR = g(theta) = mu / sigma
+    h_t   = (r_t - mu, (r_t - mu)^2 - sigma^2)            moments
+    S     = Gamma_0 + sum_{j=1..L} (1 - j/(L+1)) (Gamma_j + Gamma_j')   (Newey-West)
+    V     = grad' S grad, grad = (1/sigma, -mu / (2 sigma^3))
+    SE_p  = sqrt(V / n) ;  IC = SR -/+ z x SE_p x sqrt(A), centré sur sharpe_ratio.
+
+    Sans autocorrélation et avec des rendements gaussiens, V = 1 + SR_p^2 / 2 :
+    on retrouve sharpe_ci (version i.i.d.).
+    """
+    from scipy.stats import norm
+
+    x = returns.dropna().to_numpy(dtype=float)
+    n = len(x)
+    if n < 3:
+        return (np.nan, np.nan)
+    mu = x.mean()
+    d = x - mu
+    s2 = float((d ** 2).mean())
+    if s2 < _TINY_SD ** 2:
+        return (np.nan, np.nan)
+    h = np.column_stack([d, d ** 2 - s2])
+    L = newey_west_lags(n) if lags is None else int(lags)
+    S = h.T @ h / n
+    for j in range(1, min(L, n - 1) + 1):
+        g = h[j:].T @ h[:-j] / n
+        S += (1.0 - j / (L + 1.0)) * (g + g.T)
+    grad = np.array([1.0 / np.sqrt(s2), -mu / (2.0 * s2 ** 1.5)])
+    v = float(grad @ S @ grad)
+    sr = sharpe_ratio(returns, 0.0, periods)
+    if not np.isfinite(sr) or v <= 0:
+        return (np.nan, np.nan)
+    half = norm.ppf(0.5 + level / 2.0) * np.sqrt(v / n) * np.sqrt(periods)
+    return (float(sr - half), float(sr + half))
 
 
 def dimson_beta(returns: pd.Series, bench: pd.Series, lags: int = 1) -> float:

@@ -1,0 +1,7 @@
+[run]
+source = terminal
+# Modules utilisés uniquement par legacy/ (Streamlit et rapport HTML).
+omit =
+    terminal/charts.py
+    terminal/views.py
+    terminal/engine.py

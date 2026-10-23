@@ -108,7 +108,7 @@ def align_prices(prices: pd.DataFrame, max_ffill: int = 3) -> pd.DataFrame:
        le samedi et le dimanche, ce qui conserve le rendement total exact.
     """
     p = prices.sort_index().ffill(limit=max_ffill)
-    p = p[p.index.dayofweek < 5]
+    p = p[p.index.day_of_week < 5]
     return p.dropna(how="any")
 
 
@@ -125,6 +125,13 @@ DEMO_PROFILE = {
     "BTC-USD": (0.40, 0.65, 0.90),
     "GLD":     (0.07, 0.15, 0.05),
     "TLT":     (0.02, 0.15, -0.15),
+    # Univers du portefeuille de démonstration (terminal.marketdata.simulated)
+    "PANX.PA": (0.13, 0.23, 1.00),
+    "CW8.PA":  (0.09, 0.15, 0.70),
+    "BTC-EUR": (0.40, 0.65, 0.90),
+    "AAPL":    (0.16, 0.28, 1.10),
+    "MC.PA":   (0.10, 0.28, 0.80),
+    "ASML.AS": (0.15, 0.35, 1.30),
 }
 
 

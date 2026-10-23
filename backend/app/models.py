@@ -11,7 +11,7 @@ from __future__ import annotations
 import datetime as dt
 from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, String
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from terminal.ledger import CashMode, TxType
@@ -125,3 +125,12 @@ class MarketRange(Base):
     provider: Mapped[str] = mapped_column(String(20))
     simulated: Mapped[bool] = mapped_column(default=False)
     fetched_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class Setting(Base):
+    """Réglages modifiables depuis l'interface (valeur JSON). Voir settings_store.py."""
+
+    __tablename__ = "settings"
+
+    key: Mapped[str] = mapped_column(String(40), primary_key=True)
+    value: Mapped[str] = mapped_column(Text)

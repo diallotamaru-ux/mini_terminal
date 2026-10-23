@@ -10,6 +10,7 @@ from backend.app.config import Settings
 from backend.app.main import create_app
 from terminal.errors import MissingCurrency, ProviderUnavailable, UnknownTicker
 from terminal.marketdata.base import InstrumentInfo, MarketDataProvider, PriceSeries
+from terminal.marketdata.rates import RateProvider
 from terminal.splits import Split
 
 TODAY = dt.date.today()
@@ -78,14 +79,38 @@ class FixedProvider(MarketDataProvider):
         return InstrumentInfo(ticker, self.currency[ticker], name=f"Titre {ticker}")
 
 
+class FixedRates(RateProvider):
+    """Taux au jour le jour constant (en %), ou panne si `down`."""
+
+    name = "taux-fixes"
+    simulated = False
+
+    def __init__(self, estr=2.0, eonia=-0.3):
+        self.levels = {"estr": estr, "eonia": eonia}
+        self.down = False
+
+    def overnight(self, series, start, end):
+        if self.down:
+            raise ProviderUnavailable("taux-fixes", "panne simulée")
+        idx = pd.bdate_range(start, end)
+        if series == "estr":
+            idx = idx[idx >= pd.Timestamp("2019-10-01")]
+        return PriceSeries(series.upper(), pd.Series(self.levels[series], index=idx, dtype=float), "Taux de test")
+
+
+@pytest.fixture
+def rates():
+    return FixedRates()
+
+
 @pytest.fixture
 def provider():
     return FixedProvider()
 
 
 @pytest.fixture
-def client(provider):
-    app = create_app(Settings(demo=False), provider=provider, database_url="sqlite://")
+def client(provider, rates):
+    app = create_app(Settings(demo=False), provider=provider, database_url="sqlite://", rates=rates)
     with TestClient(app) as c:
         yield c
 

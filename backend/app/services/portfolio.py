@@ -24,6 +24,8 @@ from terminal import ledger, performance
 from terminal.errors import MissingCurrency, ProviderUnavailable, UnknownTicker
 from terminal.marketdata.base import MarketDataProvider, PriceSeries
 from terminal.positions import Position, cash_balances, compute_positions, transaction_rate
+from terminal.risk import (PERIOD_LABELS, PeriodError, available_periods, first_active_day, period_base,
+                           slice_for_period)
 from terminal.splits import Adjustment, Split, adjust_for_splits
 from terminal.valuation import MAX_STALE_DAYS, History, build_history
 
@@ -404,28 +406,81 @@ def _mwr(values, inflow, outflow) -> schemas.MwrOut:
                           days=r.days, warnings=r.warnings)
 
 
-def performance_out(snap: Snapshot) -> schemas.PerformanceOut:
+GAP_THRESHOLD_POINTS = 0.5
+
+
+def _pts(x: float) -> str:
+    v = f"{abs(x):.1f}".replace(".", ",")
+    return f"{v} point" + ("s" if abs(x) >= 2 else "")
+
+
+def tri_twr_gap(twr: schemas.TwrOut, mwr: schemas.MwrOut) -> tuple[float | None, bool, str | None]:
+    """
+    Écart TRI - TWR sur une même base (annuelle au-delà d'un an, sinon sur la période),
+    et la phrase qui l'interprète. Le TWR mesure les choix d'investissement, le TRI ce
+    que l'investisseur a vécu : l'écart est l'effet du calendrier des apports et retraits.
+    """
+    if twr.total is None or mwr.rate is None:
+        return None, False, None
+    if mwr.annualized:
+        if twr.annualized is None:
+            return None, True, None
+        t = twr.annualized
+    else:
+        t = twr.total
+    gap = (mwr.rate - t) * 100.0
+    unit = " par an" if mwr.annualized else " sur la période"
+    if abs(gap) < GAP_THRESHOLD_POINTS:
+        comment = (f"Écart faible ({_pts(gap)}{unit}) : le calendrier de vos apports et retraits n'a pas eu "
+                   f"d'effet net notable.")
+    elif gap < 0:
+        comment = (f"Votre TRI est inférieur de {_pts(gap)}{unit} à votre TWR : vos versements ont été, en "
+                   f"moyenne, plus importants avant les baisses ou après les hausses. Le calendrier de vos "
+                   f"apports vous a coûté ; la qualité de vos choix se lit dans le TWR.")
+    else:
+        comment = (f"Votre TRI dépasse votre TWR de {_pts(gap)}{unit} : vos versements ont été, en moyenne, "
+                   f"plus importants avant les hausses. Le calendrier de vos apports vous a été favorable ; "
+                   f"ce n'est pas une mesure de la qualité de vos choix, qui se lit dans le TWR.")
+    return round(gap, 4), mwr.annualized, comment
+
+
+def _block(id_, name, mode, values, inflow, outflow, base, sleeve=None) -> schemas.PerformanceBlock:
+    v, i, o = slice_for_period(values, inflow, outflow, base) if base else (values, inflow, outflow)
+    twr, mwr = _twr(v, i, o), _mwr(v, i, o)
+    tw_s = None
+    if sleeve is not None:
+        sv, si, so = slice_for_period(*sleeve, base) if base else sleeve
+        tw_s = _twr(sv, si, so)
+    gap, ann, comment = tri_twr_gap(twr, mwr)
+    return schemas.PerformanceBlock(id=id_, name=name, cash_mode=mode, twr=twr, twr_securities=tw_s, mwr=mwr,
+                                    gap_points=gap, gap_annualized=ann, gap_comment=comment)
+
+
+def performance_out(snap: Snapshot, period: str = "origine") -> schemas.PerformanceOut:
+
     empty_twr = schemas.TwrOut(total=None, annualized=None, start=None, end=None, days=0,
                                warnings=["Aucune transaction."])
     empty_mwr = schemas.MwrOut(rate=None, annualized=False, start=None, end=None, days=0,
                                warnings=["Aucune transaction."])
     h = snap.history
     if h is None:
+        if period != "origine":
+            raise PeriodError("Aucune transaction : seule la période « depuis l'origine » est disponible.")
         total = schemas.PerformanceBlock(id=None, name="Portefeuille", cash_mode=None,
                                          twr=empty_twr, twr_securities=None, mwr=empty_mwr)
         return schemas.PerformanceOut(meta=snap.meta(), total=total, accounts=[])
     t = h.total
-    total = schemas.PerformanceBlock(id=None, name="Portefeuille", cash_mode=None,
-                                     twr=_twr(t["value"], t["inflow"], t["outflow"]), twr_securities=None,
-                                     mwr=_mwr(t["value"], t["inflow"], t["outflow"]))
+    first = first_active_day(t["value"], t["inflow"])
+    base = period_base(period, snap.as_of, first) if first else None
+    total = _block(None, "Portefeuille", None, t["value"], t["inflow"], t["outflow"],
+                   base if period != "origine" else None)
     blocks = []
     for a in snap.accounts:
         f = h.accounts[a.id]
         mode = ledger.CashMode(a.cash_mode)
-        blocks.append(schemas.PerformanceBlock(
-            id=a.id, name=a.name, cash_mode=mode,
-            twr=_twr(f["value"], f["inflow"], f["outflow"]),
-            twr_securities=(_twr(f["securities"], f["sleeve_inflow"], f["sleeve_outflow"])
-                            if mode is ledger.CashMode.AVEC_ESPECES else None),
-            mwr=_mwr(f["value"], f["inflow"], f["outflow"])))
-    return schemas.PerformanceOut(meta=snap.meta(), total=total, accounts=blocks)
+        sleeve = (f["securities"], f["sleeve_inflow"], f["sleeve_outflow"])             if mode is ledger.CashMode.AVEC_ESPECES else None
+        blocks.append(_block(a.id, a.name, mode, f["value"], f["inflow"], f["outflow"],
+                             base if period != "origine" else None, sleeve))
+    return schemas.PerformanceOut(meta=snap.meta(), period=period, period_label=PERIOD_LABELS[period],
+                                  base_date=base, available_periods=available_periods(snap.as_of, first)
+                                  if first else {}, total=total, accounts=blocks)

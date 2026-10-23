@@ -279,10 +279,17 @@ class PerformanceBlock(BaseModel):
     twr: TwrOut
     twr_securities: TwrOut | None       # poche titres d'un compte avec espèces
     mwr: MwrOut
+    gap_points: float | None = None     # TRI - TWR, en points (par an si annualisés, sinon sur la période)
+    gap_annualized: bool = False
+    gap_comment: str | None = None
 
 
 class PerformanceOut(BaseModel):
     meta: Meta
+    period: str = "origine"
+    period_label: str = "Depuis l'origine"
+    base_date: dt.date | None = None
+    available_periods: dict[str, bool] = {}
     total: PerformanceBlock
     accounts: list[PerformanceBlock]
 
@@ -316,3 +323,87 @@ class ImportReport(BaseModel):
     warnings: list[str]
     new_listings: list[NewListing]
     transactions: list[TransactionIn]
+
+
+# ---------------------------------------------------------------------------
+# Risque et réglages
+# ---------------------------------------------------------------------------
+
+Period = Literal["origine", "ytd", "1y", "3y", "5y"]
+
+
+class RiskFreeOut(BaseModel):
+    mode: str
+    label: str                              # « EONIA du … au …, puis €STR » : séries de la période affichée
+    segments: list[dict]
+    source: str
+    last_date: dt.date | None
+    last_value: float | None                # en %
+    simulated: bool
+
+
+class RiskRowOut(BaseModel):
+    name: str
+    kind: str
+    complete: bool
+    first_missing: dt.date | None
+    start: dt.date | None
+    n_days: int
+    n_weeks: int
+    total_return: float | None
+    annual_return: float | None
+    volatility: float | None
+    sharpe: float | None
+    sharpe_ci: list[float] | None
+    sortino: float | None
+    max_drawdown: float | None
+    calmar: float | None
+    var95: float | None
+    cvar95: float | None
+    beta: float | None
+    beta_dimson: float | None
+    correlation: float | None
+    alpha: float | None
+    tracking_error: float | None
+    information_ratio: float | None
+    information_ratio_ci: list[float] | None
+    is_reference: bool
+    notes: dict[str, str]
+
+
+class CurveOut(BaseModel):
+    name: str
+    values: list[float | None]
+
+
+class ReferenceOut(BaseModel):
+    index: int
+    ticker: str
+    name: str
+    currency: str
+    withholding: float
+
+
+class RiskOut(BaseModel):
+    meta: Meta
+    period: Period
+    period_label: str
+    base_date: dt.date
+    span_days: int
+    available_periods: dict[str, bool]
+    reference: ReferenceOut                 # référence de comparaison (bêta, alpha, TE, IR)
+    references: list[ReferenceOut]
+    risk_free: RiskFreeOut
+    rows: list[RiskRowOut]
+    dates: list[dt.date]
+    base100: list[CurveOut]
+    drawdown: list[CurveOut]
+    rolling_volatility: list[CurveOut]
+    rolling_window: int
+    short_history: str | None
+    warnings: list[str]
+
+
+class SettingsOut(BaseModel):
+    settings: dict
+    warnings: list[str] = []

@@ -59,6 +59,12 @@ def _years_back(d: date, years: int) -> date:
         return d.replace(year=d.year - years, day=28)
 
 
+def first_active_day(values: pd.Series, inflows: pd.Series) -> date | None:
+    """Premier jour avec du capital investi (valeur non nulle ou apport). Une valeur inconnue compte comme active."""
+    active = (values.fillna(1.0).abs() > 1e-9) | (inflows.fillna(0.0) > 0)
+    return pd.Timestamp(values.index[active.to_numpy()][0]).date() if active.any() else None
+
+
 def period_base(period: str, as_of: date, first_day: date) -> date:
     """
     Date de base b de la période. `first_day` : premier jour avec du capital

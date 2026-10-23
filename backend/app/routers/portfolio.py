@@ -36,9 +36,9 @@ def history(as_of: dt.date | None = None, s: Session = Depends(get_session),
 
 
 @router.get("/portfolio/performance", response_model=schemas.PerformanceOut)
-def performance(as_of: dt.date | None = None, s: Session = Depends(get_session),
-                st: AppState = Depends(get_state)):
-    return svc.performance_out(st.snapshot(s, as_of))
+def performance(period: schemas.Period = "origine", as_of: dt.date | None = None,
+                s: Session = Depends(get_session), st: AppState = Depends(get_state)):
+    return svc.performance_out(st.snapshot(s, as_of), period)
 
 
 @router.post("/imports/csv", response_model=schemas.ImportReport)

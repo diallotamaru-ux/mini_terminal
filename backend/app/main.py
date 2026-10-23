@@ -19,26 +19,35 @@ from fastapi.responses import JSONResponse
 from terminal.errors import LedgerError, MissingCurrency, ProviderUnavailable, TerminalError, UnknownTicker
 from terminal.marketdata import get_provider
 from terminal.marketdata.base import MarketDataProvider
+from terminal.marketdata.rates import RateProvider, SimulatedRates
 
 from . import demo
 from .config import Settings, get_settings
 from .db import Database
 from .deps import AppState
-from .market import CachedProvider
-from .routers import accounts, listings, portfolio, transactions
+from .market import CachedProvider, CachedRates
+from .routers import accounts, analysis, listings, portfolio, transactions
 from .services.csv_import import CsvFormatError
 
 log = logging.getLogger("mini_terminal")
 
 
 def create_app(settings: Settings | None = None, provider: MarketDataProvider | None = None,
-               database_url: str | None = None) -> FastAPI:
+               database_url: str | None = None, rates: RateProvider | None = None) -> FastAPI:
     settings = settings or get_settings()
     db = Database(database_url or settings.database_url)
     db.create_all()
     inner = provider or get_provider(settings.effective_provider)
     cached = CachedProvider(inner, db.sessionmaker, ttl=timedelta(minutes=settings.cache_ttl_minutes))
-    state = AppState(settings=settings, db=db, provider=cached)
+    # Taux simulés si le fournisseur de cours l'est : une démo ne mélange jamais réel et fictif.
+    if rates is None:
+        if inner.simulated:
+            rates = SimulatedRates()
+        else:
+            from terminal.marketdata.ecb import EcbRates
+            rates = EcbRates()
+    cached_rates = CachedRates(rates, db.sessionmaker, ttl=timedelta(minutes=settings.cache_ttl_minutes))
+    state = AppState(settings=settings, db=db, provider=cached, rates=cached_rates)
     if settings.demo:
         with db.sessionmaker() as s:
             if demo.seed(s, cached):
@@ -49,7 +58,7 @@ def create_app(settings: Settings | None = None, provider: MarketDataProvider | 
     app.state.mt = state
     app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins, allow_methods=["*"],
                        allow_headers=["*"])
-    for r in (accounts.router, listings.router, transactions.router, portfolio.router):
+    for r in (accounts.router, listings.router, transactions.router, portfolio.router, analysis.router):
         app.include_router(r)
 
     @app.exception_handler(LedgerError)

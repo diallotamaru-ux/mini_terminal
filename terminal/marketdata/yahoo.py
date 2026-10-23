@@ -8,6 +8,7 @@ converties en livres.
 
 from __future__ import annotations
 
+import warnings
 from datetime import date, timedelta
 
 import pandas as pd
@@ -35,9 +36,12 @@ class YahooProvider(MarketDataProvider):
         try:
             # auto_adjust=False : la colonne Close est ajustée des divisions,
             # pas des dividendes (voir base.py).
-            df = yf.Ticker(symbol).history(start=start.isoformat(),
-                                           end=(end + timedelta(days=1)).isoformat(),
-                                           auto_adjust=False, actions=False, raise_errors=True)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")   # dépréciations pandas internes à yfinance
+                df = yf.Ticker(symbol).history(
+                    start=start.isoformat(),
+                    end=(end + timedelta(days=1)).isoformat(),
+                    auto_adjust=False, actions=False, raise_errors=True)
         except Exception as e:
             msg = str(e).lower()
             if any(k in msg for k in ("delisted", "no data", "not found", "no timezone", "404")):

@@ -7,11 +7,9 @@ actions, le dernier cours connu est reporté au plus `MAX_STALE_DAYS` jours
 Un jour d'achat ou de vente sans cours de clôture prend le prix de la
 transaction : c'est un prix observé.
 
-Flux externes, en euros, positifs, par compte :
-
-    convention         entrées I_t                 sorties O_t
-    avec_especes       DEPOT                        RETRAIT
-    titres_seuls       ACHAT (brut + frais), FRAIS  VENTE (brut - frais), DIVIDENDE
+Flux externes, en euros, positifs, par compte : règle unique
+`ledger.external_flows` (dépôts et retraits pour un compte avec espèces ;
+achats, ventes, dividendes et frais pour un compte en titres seuls).
 
 Les opérations d'un compte « avec espèces » sont réglées en euros : au taux
 du courtier s'il est fourni, sinon au taux de marché du jour.
@@ -31,7 +29,7 @@ from datetime import date
 import numpy as np
 import pandas as pd
 
-from .ledger import Account, CashMode, Transaction, TxType, ordered
+from .ledger import Account, CashMode, Transaction, TxType, external_flows, ordered
 
 MAX_STALE_DAYS = 7
 
@@ -132,38 +130,18 @@ def build_history(accounts: list[Account], transactions: list[Transaction],
             continue
         acc, mode, d = tx.account_id, modes[tx.account_id], tx.date
         rate = rate_on(tx)
-        eur = float(tx.gross) * rate
-        fees_eur = float(tx.fees) * rate
         if tx.type in (TxType.ACHAT, TxType.VENTE):
             sign = 1 if tx.type is TxType.ACHAT else -1
             k = (acc, tx.ticker)
             qty_delta.setdefault(k, {})
             qty_delta[k][pd.Timestamp(d)] = qty_delta[k].get(pd.Timestamp(d), 0.0) + sign * float(tx.quantity)
-
-        # Flux de la poche titres (= flux du compte en convention titres seuls).
-        if tx.type is TxType.ACHAT:
-            bump(acc, "sleeve_inflow", d, eur + fees_eur)
-        elif tx.type is TxType.VENTE:
-            bump(acc, "sleeve_outflow", d, eur - fees_eur)
-        elif tx.type is TxType.DIVIDENDE:
-            bump(acc, "sleeve_outflow", d, eur)
-
         if mode is CashMode.AVEC_ESPECES:
             bump(acc, "cash", d, float(tx.net_cash) * rate)
-            if tx.type is TxType.DEPOT:
-                bump(acc, "inflow", d, eur)
-            elif tx.type is TxType.RETRAIT:
-                bump(acc, "outflow", d, eur)
-        else:
-            if tx.type is TxType.ACHAT:
-                bump(acc, "inflow", d, eur + fees_eur)
-            elif tx.type is TxType.FRAIS:
-                # Frais payés de l'extérieur : un apport aussitôt consommé.
-                bump(acc, "inflow", d, eur)
-            elif tx.type is TxType.VENTE:
-                bump(acc, "outflow", d, eur - fees_eur)
-            elif tx.type is TxType.DIVIDENDE:
-                bump(acc, "outflow", d, eur)
+        flows = external_flows(tx, mode)
+        for col in ("inflow", "outflow", "sleeve_inflow", "sleeve_outflow"):
+            v = getattr(flows, col)
+            if v:
+                bump(acc, col, d, float(v) * rate)
 
     holdings = {}
     for (acc, t), deltas in sorted(qty_delta.items()):

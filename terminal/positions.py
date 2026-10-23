@@ -22,7 +22,7 @@ from datetime import date
 from decimal import Decimal
 
 from .errors import MissingCurrency
-from .ledger import ZERO, Transaction, TxType, ordered
+from .ledger import ZERO, Account, CashMode, Transaction, TxType, ordered
 
 # fx_at(devise, date) -> euros pour une unité de devise ; lève MissingCurrency.
 FxLookup = Callable[[str, date], Decimal]
@@ -141,4 +141,21 @@ def compute_positions(transactions: list[Transaction],
         else:  # DIVIDENDE
             pos.dividends += tx.gross
             pos.dividends_eur = _add(pos.dividends_eur, _mul(tx.gross, rate))
+    return out
+
+
+def cash_balances(accounts: list[Account], transactions: list[Transaction],
+                  fx_at: FxLookup | None = None) -> dict[int, Decimal | None]:
+    """
+    Solde d'espèces en euros des comptes « avec espèces » (Decimal).
+    Chaque opération est réglée en euros au taux de `transaction_rate`.
+    None si un taux manque : le solde est alors inconnu, pas nul.
+    Les comptes « titres seuls » n'ont pas de solde (absents du résultat).
+    """
+    out: dict[int, Decimal | None] = {a.id: ZERO for a in accounts
+                                      if a.cash_mode is CashMode.AVEC_ESPECES}
+    for tx in ordered(transactions):
+        if tx.account_id not in out:
+            continue
+        out[tx.account_id] = _add(out[tx.account_id], _mul(tx.net_cash, transaction_rate(tx, fx_at)))
     return out

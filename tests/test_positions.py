@@ -91,3 +91,19 @@ def test_decimal_precision_on_fractional_quantities(q, p):
     txs = [tx("ACHAT", 0, ticker="BTC-EUR", q=q, p=p), tx("VENTE", 1, ticker="BTC-EUR", q=q, p=p)]
     pos = compute_positions(txs)[(CASH.id, "BTC-EUR")]
     assert pos.realized == 0 and pos.quantity == 0
+
+
+def test_cash_balances_in_decimal():
+    from _factories import SECU
+    from terminal.positions import cash_balances
+    # 1 000 - (10 x 50 + 1) + 3,10 - 2 = 500,10
+    txs = [tx("DEPOT", 0, amount=1000), tx("ACHAT", 0, ticker="AAA", q=10, p=50, fees=1),
+           tx("DIVIDENDE", 1, ticker="AAA", amount="3.10"), tx("FRAIS", 2, amount=2),
+           tx("ACHAT", 0, acc=SECU, ticker="AAA", q=1, p=1)]
+    out = cash_balances([CASH, SECU], txs)
+    assert out == {CASH.id: D("500.10")}
+    # Achat en USD au taux courtier 0,9 : 100 USD -> 90 EUR débités.
+    usd = txs + [tx("ACHAT", 3, ticker="US1", q=1, p=100, cur="USD", fx="0.9")]
+    assert cash_balances([CASH], usd)[CASH.id] == D("410.10")
+    # Sans taux : solde inconnu.
+    assert cash_balances([CASH], txs + [tx("ACHAT", 3, ticker="US1", q=1, p=100, cur="USD")])[CASH.id] is None

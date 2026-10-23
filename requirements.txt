@@ -1,7 +1,11 @@
-yfinance>=0.2.50
-pandas>=2.1
-numpy>=1.26
-scipy>=1.11
-plotly>=5.20
-streamlit>=1.66   # version testée (paramètres width= et delta_arrow=)
-pytest>=8.0
+# Cœur de calcul et API. Versions testées entre parenthèses.
+numpy>=1.26            # (2.5.4)
+pandas>=2.1            # (3.1.0)
+scipy>=1.11            # (1.18.1)
+yfinance>=0.2.50       # (1.7.0)
+fastapi>=0.115         # (0.161.1)
+uvicorn[standard]>=0.32  # (0.54.0)
+sqlalchemy>=2.0.36     # (2.1.6)
+pydantic>=2.9          # (2.14.1)
+pydantic-settings>=2.6 # (2.16.1)
+python-multipart>=0.0.18  # (0.0.32)

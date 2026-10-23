@@ -115,6 +115,38 @@ class Transaction:
         return f"{ref} {self.type} du {self.date.isoformat()}".strip()
 
 
+@dataclass(frozen=True)
+class Flows:
+    """Flux externes d'une opération, positifs, dans la devise de la transaction."""
+    inflow: Decimal = ZERO             # apport au compte
+    outflow: Decimal = ZERO            # retrait du compte
+    sleeve_inflow: Decimal = ZERO      # apport à la poche titres
+    sleeve_outflow: Decimal = ZERO     # retrait de la poche titres
+
+
+def external_flows(tx: Transaction, mode: CashMode) -> Flows:
+    """
+    Seule définition des flux externes, utilisée partout.
+
+        convention      apports (inflow)              retraits (outflow)
+        avec_especes    DEPOT                         RETRAIT
+        titres_seuls    ACHAT (brut + frais), FRAIS   VENTE (brut - frais), DIVIDENDE
+
+    La poche titres suit toujours la règle « titres seuls », hors FRAIS de
+    compte : un compte avec espèces les paie sur ses espèces.
+    """
+    g, f = tx.gross, tx.fees
+    s_in = g + f if tx.type is TxType.ACHAT else ZERO
+    s_out = g - f if tx.type is TxType.VENTE else g if tx.type is TxType.DIVIDENDE else ZERO
+    if mode is CashMode.AVEC_ESPECES:
+        return Flows(inflow=g if tx.type is TxType.DEPOT else ZERO,
+                     outflow=g if tx.type is TxType.RETRAIT else ZERO,
+                     sleeve_inflow=s_in, sleeve_outflow=s_out)
+    # Titres seuls : des frais payés de l'extérieur sont un apport aussitôt consommé.
+    return Flows(inflow=s_in + (g if tx.type is TxType.FRAIS else ZERO), outflow=s_out,
+                 sleeve_inflow=s_in, sleeve_outflow=s_out)
+
+
 def sort_key(tx: Transaction) -> tuple:
     return (tx.date, _DAY_ORDER[tx.type], tx.id if tx.id is not None else 0)
 

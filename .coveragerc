@@ -1,5 +1,5 @@
 [run]
-source = terminal
+source = terminal, backend/app
 # Modules utilisés uniquement par legacy/ (Streamlit et rapport HTML).
 omit =
     terminal/charts.py

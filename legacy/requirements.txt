@@ -1,0 +1,4 @@
+# Application Streamlit et rapport HTML historiques (non maintenus).
+-r ../requirements.txt
+plotly>=5.20
+streamlit>=1.66

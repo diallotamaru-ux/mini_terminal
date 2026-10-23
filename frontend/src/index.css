@@ -102,6 +102,13 @@ table.data th.r,
 table.data td.r {
   text-align: right;
 }
+table.data.compact th,
+table.data.compact td {
+  padding: 0.45rem 0.4rem;
+}
+table.data.compact {
+  font-size: 0.8125rem;
+}
 table.data tbody tr:hover {
   background: var(--surface-2);
 }

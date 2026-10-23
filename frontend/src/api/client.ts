@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type {
   Account,
@@ -6,7 +6,10 @@ import type {
   History,
   ImportReport,
   Listing,
+  AnalysisSettings,
   Performance,
+  Period,
+  Risk,
   Position,
   Meta,
   SplitAdjustment,
@@ -73,7 +76,11 @@ export const api = {
   positions: () =>
     request<{ meta: Meta; positions: Position[]; split_adjustments: SplitAdjustment[] }>("/api/portfolio/positions"),
   history: () => request<History>("/api/portfolio/history"),
-  performance: () => request<Performance>("/api/portfolio/performance"),
+  performance: (period: Period) => request<Performance>(`/api/portfolio/performance?period=${period}`),
+  risk: (period: Period, reference: number) => request<Risk>(`/api/risk?period=${period}&reference=${reference}`),
+  settings: () => request<{ settings: AnalysisSettings; warnings: string[] }>("/api/settings"),
+  saveSettings: (s: AnalysisSettings) =>
+    request<{ settings: AnalysisSettings; warnings: string[] }>("/api/settings", json("PUT", s)),
 };
 
 // --- Hooks React Query -------------------------------------------------------
@@ -85,7 +92,11 @@ export const useTransactions = () => useQuery({ queryKey: ["transactions"], quer
 export const useSummary = () => useQuery({ queryKey: ["portfolio", "summary"], queryFn: api.summary });
 export const usePositions = () => useQuery({ queryKey: ["portfolio", "positions"], queryFn: api.positions });
 export const useHistory = () => useQuery({ queryKey: ["portfolio", "history"], queryFn: api.history });
-export const usePerformance = () => useQuery({ queryKey: ["portfolio", "performance"], queryFn: api.performance });
+export const usePerformance = (period: Period) =>
+  useQuery({ queryKey: ["portfolio", "performance", period], queryFn: () => api.performance(period), placeholderData: keepPreviousData });
+export const useRisk = (period: Period, reference: number) =>
+  useQuery({ queryKey: ["portfolio", "risk", period, reference], queryFn: () => api.risk(period, reference), placeholderData: keepPreviousData });
+export const useSettings = () => useQuery({ queryKey: ["settings"], queryFn: api.settings });
 
 /** Mutation qui invalide tout ce qui dépend du grand livre. */
 export function useLedgerMutation<A, R>(fn: (a: A) => Promise<R>) {
@@ -93,7 +104,7 @@ export function useLedgerMutation<A, R>(fn: (a: A) => Promise<R>) {
   return useMutation({
     mutationFn: fn,
     onSuccess: () => {
-      for (const k of ["accounts", "listings", "transactions", "portfolio"]) qc.invalidateQueries({ queryKey: [k] });
+      for (const k of ["accounts", "listings", "transactions", "portfolio", "settings"]) qc.invalidateQueries({ queryKey: [k] });
     },
   });
 }

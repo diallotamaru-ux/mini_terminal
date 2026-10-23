@@ -1,6 +1,6 @@
 import { useIsFetching, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { NavLink, Route, Routes } from "react-router-dom";
+import { NavLink, Route, Routes, useSearchParams } from "react-router-dom";
 
 import { useMeta } from "./api/client";
 import type { Meta } from "./api/types";
@@ -8,15 +8,19 @@ import { SimulatedBanner } from "./components/ui";
 import Comptes from "./pages/Comptes";
 import Performance from "./pages/Performance";
 import Positions from "./pages/Positions";
+import Reglages from "./pages/Reglages";
+import Risque from "./pages/Risque";
 import TableauDeBord from "./pages/TableauDeBord";
 import Transactions from "./pages/Transactions";
 
 const NAV = [
   { to: "/", label: "Tableau de bord" },
   { to: "/positions", label: "Positions" },
-  { to: "/performance", label: "Performance" },
+  { to: "/performance", label: "Performance", keepPeriod: true },
+  { to: "/risque", label: "Risque", keepPeriod: true },
   { to: "/transactions", label: "Transactions" },
   { to: "/comptes", label: "Comptes et titres" },
+  { to: "/reglages", label: "Réglages" },
 ];
 
 type Theme = "dark" | "light";
@@ -51,6 +55,9 @@ export default function App() {
   const [theme, toggle] = useTheme();
   const simulated = useSimulated();
   const [menu, setMenu] = useState(false);
+  // La période choisie suit l'utilisateur entre Performance et Risque.
+  const [params] = useSearchParams();
+  const periode = params.get("periode");
 
   return (
     <div className="min-h-screen">
@@ -64,7 +71,8 @@ export default function App() {
           </button>
           <nav className={`${menu ? "flex" : "hidden"} absolute left-0 right-0 top-12 z-40 flex-col border-b border-line bg-surface px-4 py-2 md:static md:flex md:flex-row md:border-0 md:p-0`}>
             {NAV.map((n) => (
-              <NavLink key={n.to} to={n.to} end={n.to === "/"} onClick={() => setMenu(false)}
+              <NavLink key={n.to} to={"keepPeriod" in n && periode ? `${n.to}?periode=${periode}` : n.to}
+                end={n.to === "/"} onClick={() => setMenu(false)}
                 className={({ isActive }) =>
                   `rounded-md px-3 py-1.5 text-sm ${isActive ? "bg-surface-2 text-ink" : "text-ink-2 hover:text-ink"}`}>
                 {n.label}
@@ -84,6 +92,8 @@ export default function App() {
           <Route path="/performance" element={<Performance />} />
           <Route path="/transactions" element={<Transactions />} />
           <Route path="/comptes" element={<Comptes />} />
+          <Route path="/risque" element={<Risque />} />
+          <Route path="/reglages" element={<Reglages />} />
         </Routes>
       </main>
       <footer className="mx-auto max-w-7xl px-4 pb-6 text-xs text-muted">

@@ -1,5 +1,6 @@
 import { usePerformance } from "../api/client";
 import type { Mwr, PerformanceBlock, Twr } from "../api/types";
+import PeriodSelector, { usePeriod } from "../components/PeriodSelector";
 import { Card, ErrorBox, Loading, Source, Warnings } from "../components/ui";
 import { CASH_MODE_LABEL, date, pct, signClass } from "../lib/format";
 
@@ -41,18 +42,34 @@ function Block({ b, main = false }: { b: PerformanceBlock; main?: boolean }) {
         {b.twr_securities ? <TwrCell t={b.twr_securities} label="TWR des titres seuls" /> : <div className="hidden sm:block" />}
         <MwrCell m={b.mwr} />
       </div>
+      {b.gap_points !== null && (
+        <div className="mt-3 border-t border-line pt-3 text-sm">
+          <span className="text-muted">TRI − TWR : </span>
+          <strong className="num">{b.gap_points > 0 ? "+" : b.gap_points < 0 ? "−" : ""}
+            {Math.abs(b.gap_points).toLocaleString("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} point{Math.abs(b.gap_points) >= 2 ? "s" : ""}
+            {b.gap_annualized ? " par an" : " sur la période"}</strong>
+          <p className="mt-1 text-ink-2">{b.gap_comment}</p>
+        </div>
+      )}
     </Card>
   );
 }
 
 export default function Performance() {
-  const q = usePerformance();
-  if (q.isLoading) return <Loading />;
-  if (q.error) return <ErrorBox error={q.error} />;
-  const p = q.data!;
+  const [period, setPeriod] = usePeriod();
+  const q = usePerformance(period);
+  const p = q.data;
   return (
     <>
-      <h1 className="text-lg font-semibold">Performance depuis l'origine</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-lg font-semibold">Performance{p ? ` · ${p.period_label.toLowerCase()}` : ""}</h1>
+        <PeriodSelector value={period} onChange={setPeriod} available={p?.available_periods} />
+      </div>
+      {q.isLoading && <Loading />}
+      <ErrorBox error={q.error} />
+      {p && <div className={`space-y-4 ${q.isFetching ? "opacity-60" : ""}`}>
+      {p.base_date && <p className="text-xs text-muted">Du {date(p.base_date)} au {date(p.meta.as_of)} : la valeur au
+        {" "}{date(p.base_date)} est traitée comme un apport initial.</p>}
       <Warnings items={p.meta.warnings} />
       <Block b={p.total} main />
 
@@ -64,7 +81,7 @@ export default function Performance() {
               Le rendement pondéré par le temps enchaîne les rendements de chaque jour,
               <span className="num"> TWR = ∏ (1 + r<sub>t</sub>) − 1</span>, en retirant l'effet des apports et des retraits.
               Il ne dépend pas du moment où vous avez versé de l'argent. C'est la mesure à comparer à un indice
-              (le Nasdaq 100 en phase 2).
+              (page Risque).
             </p>
           </div>
           <div>
@@ -88,8 +105,8 @@ export default function Performance() {
             <h3 className="mb-1 font-medium text-ink">Conventions</h3>
             <p>
               Apports en début de journée, retraits en fin de journée. Pas d'annualisation sous un an : un +2 % sur
-              trois mois ne devient pas « +8 % par an ». Ces chiffres ne contiennent aucun intervalle de confiance :
-              les ratios de risque et leurs marges d'erreur arrivent en phase 2.
+              trois mois ne devient pas « +8 % par an ». Les ratios de risque et leurs marges d'erreur sont sur la
+              page Risque.
             </p>
           </div>
         </div>
@@ -97,6 +114,7 @@ export default function Performance() {
 
       {p.accounts.map((b) => <Block key={b.id} b={b} />)}
       <Source meta={p.meta} />
+      </div>}
     </>
   );
 }

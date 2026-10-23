@@ -180,10 +180,17 @@ export interface PerformanceBlock {
   twr: Twr;
   twr_securities: Twr | null;
   mwr: Mwr;
+  gap_points: number | null;
+  gap_annualized: boolean;
+  gap_comment: string | null;
 }
 
 export interface Performance {
   meta: Meta;
+  period: Period;
+  period_label: string;
+  base_date: string | null;
+  available_periods: Partial<Record<Period, boolean>>;
   total: PerformanceBlock;
   accounts: PerformanceBlock[];
 }
@@ -205,4 +212,93 @@ export interface ImportReport {
   warnings: string[];
   new_listings: { ticker: string; isin: string | null; currency: string; name: string | null }[];
   transactions: TransactionIn[];
+}
+
+// --- Phase 2 : risque, périodes, réglages -----------------------------------
+
+export type Period = "origine" | "ytd" | "1y" | "3y" | "5y";
+
+export interface RiskRow {
+  name: string;
+  kind: "portefeuille" | "compte" | "reference";
+  complete: boolean;
+  first_missing: string | null;
+  start: string | null;
+  n_days: number;
+  n_weeks: number;
+  total_return: number | null;
+  annual_return: number | null;
+  volatility: number | null;
+  sharpe: number | null;
+  sharpe_ci: [number, number] | null;
+  sortino: number | null;
+  max_drawdown: number | null;
+  calmar: number | null;
+  var95: number | null;
+  cvar95: number | null;
+  beta: number | null;
+  beta_dimson: number | null;
+  correlation: number | null;
+  alpha: number | null;
+  tracking_error: number | null;
+  information_ratio: number | null;
+  information_ratio_ci: [number, number] | null;
+  is_reference: boolean;
+  notes: Record<string, string>;
+}
+
+export interface Curve {
+  name: string;
+  values: (number | null)[];
+}
+
+export interface ReferenceInfo {
+  index: number;
+  ticker: string;
+  name: string;
+  currency: string;
+  withholding: number;
+}
+
+export interface Risk {
+  meta: Meta;
+  period: Period;
+  period_label: string;
+  base_date: string;
+  span_days: number;
+  available_periods: Record<Period, boolean>;
+  reference: ReferenceInfo;
+  references: ReferenceInfo[];
+  risk_free: {
+    mode: string;
+    label: string;
+    segments: { name: string; start: string; end: string }[];
+    source: string;
+    last_date: string | null;
+    last_value: number | null;
+    simulated: boolean;
+  };
+  rows: RiskRow[];
+  dates: string[];
+  base100: Curve[];
+  drawdown: Curve[];
+  rolling_volatility: Curve[];
+  rolling_window: number;
+  short_history: string | null;
+  warnings: string[];
+}
+
+export interface ReferenceSetting {
+  ticker: string;
+  name: string;
+  currency: string;
+  withholding: string;
+}
+
+export interface AnalysisSettings {
+  reference_1: ReferenceSetting;
+  reference_2: ReferenceSetting;
+  rf_mode: "estr" | "fixe" | "zero";
+  rf_fixed_rate: string | null;
+  rolling_window: number;
 }

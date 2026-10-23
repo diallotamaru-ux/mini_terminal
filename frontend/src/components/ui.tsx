@@ -41,7 +41,13 @@ export function Stat({ label, value, hint, valueClass = "" }: {
 /** Date et source des données d'un bloc. Obligatoire sous toute valeur affichée. */
 export function Source({ meta }: { meta?: Meta }) {
   if (!meta) return null;
-  const names = meta.sources.map((s) => (s.last_date ? `${s.name} (cours au ${date(s.last_date)})` : s.name));
+  // Une même source citée pour plusieurs séries n'apparaît qu'une fois, avec sa date la plus récente.
+  const byName = new Map<string, string | null>();
+  for (const s of meta.sources) {
+    const prev = byName.get(s.name);
+    byName.set(s.name, prev && s.last_date && prev > s.last_date ? prev : s.last_date ?? prev ?? null);
+  }
+  const names = [...byName].map(([name, d]) => (d ? `${name} (au ${date(d)})` : name));
   return (
     <p className="mt-3 text-xs text-muted">
       Valorisation au {date(meta.as_of)}

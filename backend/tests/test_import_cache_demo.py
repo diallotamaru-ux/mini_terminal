@@ -287,3 +287,32 @@ def test_dividend_cache(cache):
     assert a.closes.tolist() == b.closes.tolist() == [1.5]
     assert inner.calls.count("DIV:AAA.PA") == 1
     assert c.dividends("BBB.PA", days_ago(30), days_ago(5)).closes.empty
+
+
+def test_rate_cache_and_outage():
+    from backend.app.market import CachedRates
+    from terminal.marketdata.rates import SimulatedRates
+
+    class Counting(SimulatedRates):
+        calls = 0
+        down = False
+
+        def overnight(self, series, start, end):
+            Counting.calls += 1
+            if Counting.down:
+                raise ProviderUnavailable("bce", "panne")
+            return super().overnight(series, start, end)
+
+    db = Database("sqlite://")
+    db.create_all()
+    clock = Clock()
+    c = CachedRates(Counting(), db.sessionmaker, ttl=dt.timedelta(hours=6), now=clock)
+    a = c.overnight("estr", dt.date(2024, 1, 1), dt.date(2024, 3, 31))
+    b = c.overnight("estr", dt.date(2024, 2, 1), dt.date(2024, 2, 29))
+    assert Counting.calls == 1 and b.closes.tolist() == a.closes.loc["2024-02"].tolist() and b.simulated
+    clock.t += dt.timedelta(days=2)
+    Counting.down = True
+    s = c.overnight("estr", dt.date(2024, 1, 1), dt.date(2025, 1, 31))          # plage plus large, panne
+    assert "fournisseur indisponible" in s.source
+    with pytest.raises(ProviderUnavailable):
+        c.overnight("eonia", dt.date(2018, 1, 1), dt.date(2018, 2, 1))          # aucun cache

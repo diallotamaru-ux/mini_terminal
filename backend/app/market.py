@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from terminal.errors import ProviderUnavailable
 from terminal.marketdata.base import InstrumentInfo, MarketDataProvider, PriceSeries
+from terminal.marketdata.rates import RateProvider
 from terminal.splits import Split
 
 from .models import MarketBar, MarketRange, MarketSplit
@@ -32,9 +33,10 @@ def _utc(dt: datetime) -> datetime:
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
-class CachedProvider(MarketDataProvider):
-    def __init__(self, inner: MarketDataProvider, sessions: sessionmaker[Session],
-                 ttl: timedelta = timedelta(hours=6),
+class _SeriesCache:
+    """Mécanique commune : plages téléchargées, relecture, repli sur le cache en cas de panne."""
+
+    def __init__(self, inner, sessions: sessionmaker[Session], ttl: timedelta = timedelta(hours=6),
                  now: Callable[[], datetime] = lambda: datetime.now(timezone.utc)):
         self.inner = inner
         self.sessions = sessions
@@ -43,54 +45,6 @@ class CachedProvider(MarketDataProvider):
         self.name = inner.name
         self.simulated = inner.simulated
 
-    def daily_closes(self, ticker: str, start: date, end: date) -> PriceSeries:
-        return self._get(ticker, ticker, start, end,
-                         lambda s, e: self.inner.daily_closes(ticker, s, e))
-
-    def fx_rates(self, currency: str, start: date, end: date) -> PriceSeries:
-        if currency == "EUR":
-            ones = pd.Series(1.0, index=pd.date_range(start, end, freq="D"))
-            return PriceSeries("EUR", ones, "identité", simulated=self.simulated)
-        return self._get(f"FX:{currency}", f"{currency}EUR", start, end,
-                         lambda s, e: self.inner.fx_rates(currency, s, e))
-
-    def instrument_info(self, ticker: str) -> InstrumentInfo:
-        return self.inner.instrument_info(ticker)
-
-    def dividends(self, ticker: str, start: date, end: date) -> PriceSeries:
-        return self._get(f"DIV:{ticker}", ticker, start, end,
-                         lambda s, e: self.inner.dividends(ticker, s, e))
-
-    def splits(self, ticker: str) -> list[Split]:
-        symbol = f"SPLITS:{ticker}"
-        with self.sessions() as s:
-            rng = s.get(MarketRange, symbol)
-            fresh = (rng is not None and rng.provider == self.inner.name
-                     and self.now() - _utc(rng.fetched_at) < self.ttl)
-            if not fresh:
-                try:
-                    found = self.inner.splits(ticker)
-                except ProviderUnavailable:
-                    if rng is None or rng.provider != self.inner.name:
-                        raise
-                    found = None                 # fournisseur en panne : cache existant
-                if found is not None:
-                    s.execute(delete(MarketSplit).where(MarketSplit.ticker == ticker))
-                    s.add_all(MarketSplit(ticker=ticker, date=x.date, numerator=x.numerator,
-                                          denominator=x.denominator) for x in found)
-                    if rng is None:
-                        rng = MarketRange(symbol=symbol)
-                        s.add(rng)
-                    today = self.now().date()
-                    rng.start, rng.end = today, today
-                    rng.source, rng.provider, rng.simulated = self.inner.name, self.inner.name, self.simulated
-                    rng.fetched_at = self.now()
-                    s.commit()
-            rows = s.scalars(select(MarketSplit).where(MarketSplit.ticker == ticker)
-                             .order_by(MarketSplit.date)).all()
-            return [Split(r.ticker, r.date, r.numerator, r.denominator) for r in rows]
-
-    # ------------------------------------------------------------------
 
     def _fresh(self, rng: MarketRange | None, start: date, end: date) -> bool:
         if rng is None or rng.provider != self.inner.name:
@@ -140,3 +94,60 @@ class CachedProvider(MarketDataProvider):
             rng.fetched_at = self.now()
             s.commit()
             return self._read(s, symbol, label, start, end, rng)
+
+
+class CachedProvider(_SeriesCache, MarketDataProvider):
+    def daily_closes(self, ticker: str, start: date, end: date) -> PriceSeries:
+        return self._get(ticker, ticker, start, end,
+                         lambda s, e: self.inner.daily_closes(ticker, s, e))
+
+    def fx_rates(self, currency: str, start: date, end: date) -> PriceSeries:
+        if currency == "EUR":
+            ones = pd.Series(1.0, index=pd.date_range(start, end, freq="D"))
+            return PriceSeries("EUR", ones, "identité", simulated=self.simulated)
+        return self._get(f"FX:{currency}", f"{currency}EUR", start, end,
+                         lambda s, e: self.inner.fx_rates(currency, s, e))
+
+    def instrument_info(self, ticker: str) -> InstrumentInfo:
+        return self.inner.instrument_info(ticker)
+
+    def dividends(self, ticker: str, start: date, end: date) -> PriceSeries:
+        return self._get(f"DIV:{ticker}", ticker, start, end,
+                         lambda s, e: self.inner.dividends(ticker, s, e))
+
+    def splits(self, ticker: str) -> list[Split]:
+        symbol = f"SPLITS:{ticker}"
+        with self.sessions() as s:
+            rng = s.get(MarketRange, symbol)
+            fresh = (rng is not None and rng.provider == self.inner.name
+                     and self.now() - _utc(rng.fetched_at) < self.ttl)
+            if not fresh:
+                try:
+                    found = self.inner.splits(ticker)
+                except ProviderUnavailable:
+                    if rng is None or rng.provider != self.inner.name:
+                        raise
+                    found = None                 # fournisseur en panne : cache existant
+                if found is not None:
+                    s.execute(delete(MarketSplit).where(MarketSplit.ticker == ticker))
+                    s.add_all(MarketSplit(ticker=ticker, date=x.date, numerator=x.numerator,
+                                          denominator=x.denominator) for x in found)
+                    if rng is None:
+                        rng = MarketRange(symbol=symbol)
+                        s.add(rng)
+                    today = self.now().date()
+                    rng.start, rng.end = today, today
+                    rng.source, rng.provider, rng.simulated = self.inner.name, self.inner.name, self.simulated
+                    rng.fetched_at = self.now()
+                    s.commit()
+            rows = s.scalars(select(MarketSplit).where(MarketSplit.ticker == ticker)
+                             .order_by(MarketSplit.date)).all()
+            return [Split(r.ticker, r.date, r.numerator, r.denominator) for r in rows]
+
+
+class CachedRates(_SeriesCache, RateProvider):
+    """Même cache, pour les taux au jour le jour (symboles « RATE:ESTR », « RATE:EONIA »)."""
+
+    def overnight(self, series: str, start: date, end: date) -> PriceSeries:
+        return self._get(f"RATE:{series.upper()}", series.upper(), start, end,
+                         lambda s, e: self.inner.overnight(series, s, e))

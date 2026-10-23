@@ -1,14 +1,17 @@
 # Mini-terminal
 
 Application web d'analyse de portefeuille personnel, construite à partir des **transactions réelles** :
-positions, prix de revient, plus-values, et performance mesurée de deux façons (TWR et TRI).
+positions, prix de revient, plus-values, performance mesurée de deux façons (TWR et TRI), et comparaison au
+Nasdaq 100 et au MSCI World en euros, avec la marge d'erreur de chaque ratio.
 Devise de référence : l'euro. Plusieurs comptes (compte-titres, PEA, crypto), actifs cotés en EUR ou en USD.
 
 L'application **lit et analyse, elle n'agit pas** : aucune exécution d'ordre, aucune connexion à un courtier,
 aucun identifiant stocké.
 
-| Tableau de bord (thème sombre) | Performance |
+| Risque et comparaison | Performance par période (thème clair) |
 |---|---|
+| ![Risque](docs/captures/risque.png) | ![Performance](docs/captures/performance-clair.png) |
+| **Tableau de bord (thème sombre)** | **Performance depuis l'origine** |
 | ![Tableau de bord](docs/captures/tableau-de-bord.png) | ![Performance](docs/captures/performance.png) |
 | **Positions (thème clair)** | **Positions sur mobile** |
 | ![Positions](docs/captures/positions-clair.png) | ![Mobile](docs/captures/positions-mobile.png) |
@@ -20,7 +23,7 @@ aucun identifiant stocké.
 | Phase | Contenu | État |
 |---|---|---|
 | 1 | Comptes, transactions, import CSV, positions, PRU, plus-values, TWR, TRI, tableau de bord | **terminée** |
-| 2 | Indicateurs de risque sur le TWR réel, comparaison au Nasdaq 100 en EUR, intervalle de confiance du Sharpe | à venir |
+| 2 | Indicateurs de risque sur le TWR réel, comparaison au Nasdaq 100 et au MSCI World en EUR, intervalles de confiance, périodes | **terminée** |
 | 3 | Corrélations, contributions au risque, ENB (ACP et torsion minimale), simulateur | à venir |
 | 4 | Fiche par action, DCF inversé | à venir |
 
@@ -59,7 +62,7 @@ La base SQLite est conservée dans le volume `mt-data`.
 ### Tests
 
 ```powershell
-.venv\Scripts\python -m pytest --cov      # 153 tests ; couverture du module de calcul : 97 %
+.venv\Scripts\python -m pytest --cov      # 193 tests ; couverture du module de calcul : 98 %
 cd frontend; npx tsc -p .                # vérification des types
 ```
 
@@ -81,6 +84,10 @@ cd frontend; npx tsc -p .                # vérification des types
    le fournisseur. L'ISIN est facultatif ; il regroupe plusieurs cotations d'un même titre.
 3. **Transactions** : saisie manuelle, ou import CSV avec aperçu avant écriture. Format :
    [`docs/FORMAT_CSV.md`](docs/FORMAT_CSV.md), exemple : [`examples/transactions_exemple.csv`](examples/transactions_exemple.csv).
+4. **Réglages** : références de comparaison (QQQ et IWDA.AS par défaut), retenue à la source sur leurs dividendes,
+   taux sans risque (€STR, taux fixe ou nul), fenêtre de la volatilité glissante.
+5. **Performance** et **Risque** : choisissez la période (origine, début d'année, 1, 3 ou 5 ans). La période suit
+   d'une page à l'autre.
 
 ## Architecture
 
@@ -91,17 +98,24 @@ mini_terminal/
 │   ├── positions.py          Quantités, PRU (PMP), PV latente et réalisée, espèces, en devise et en EUR
 │   ├── valuation.py          Valorisation quotidienne par compte, flux externes, poche titres
 │   ├── performance.py        TWR, TRI (Brent), annualisation
-│   ├── metrics.py            Indicateurs de risque (Sharpe, Sortino, bêta…) : phases 2 et 3
+│   ├── metrics.py            Indicateurs (Sharpe, Sortino, bêta…), IC de Lo, bêta de Dimson
+│   ├── risk.py               Périodes, jours ouvrés et semaines, tableau comparatif et ses règles
+│   ├── benchmark.py          Références dividendes réinvestis, converties en euros
+│   ├── riskfree.py           Taux sans risque : raccord EONIA / €STR, convention ACT/360
+│   ├── splits.py             Ajustement des transactions pour les divisions d'actions
 │   ├── marketdata/
 │   │   ├── base.py           Interface MarketDataProvider et erreurs typées
 │   │   ├── yahoo.py          Implémentation yfinance (seul fichier qui l'importe)
-│   │   └── simulated.py      Implémentation simulée (tests, démo)
+│   │   ├── simulated.py      Implémentation simulée (tests, démo)
+│   │   ├── rates.py          Interface des taux au jour le jour, version simulée
+│   │   └── ecb.py            €STR et EONIA de la BCE (seul fichier qui appelle la BCE)
 │   └── data.py, engine.py, charts.py, views.py   utilisés par legacy/
 ├── backend/app/              FastAPI + SQLAlchemy 2 + SQLite
 │   ├── models.py, db.py      Tables ; type DecimalText (Decimal exact dans SQLite)
-│   ├── market.py             Cache des cours en base, devant n'importe quel fournisseur
+│   ├── market.py             Cache en base des cours, dividendes, divisions et taux
+│   ├── settings_store.py     Réglages d'analyse, stockés en base
 │   ├── services/             portfolio.py (base -> cœur -> réponses), csv_import.py, ledger_check.py
-│   └── routers/              accounts, listings, transactions, portfolio, imports, meta
+│   └── routers/              accounts, listings, transactions, portfolio, analysis (risque, réglages)
 ├── frontend/                 React + TypeScript + Vite + Tailwind ; Lightweight Charts, ECharts
 ├── tests/, backend/tests/    Tests du cœur et de l'API
 ├── docs/                     Format CSV, captures
@@ -150,7 +164,19 @@ Méthode de calcul détaillée : [`METHODE.md`](METHODE.md).
 - **Fiscalité non calculée** : pas d'impôt latent, pas de règles PEA (plafond, retraits). Les dividendes sont
   saisis nets.
 - **Devise de référence fixe** : EUR uniquement.
-- **Performance depuis l'origine uniquement** : pas encore de sélection de période (1 an, début d'année).
+- **Cours du jour en séance** : avant la clôture, Yahoo renvoie le dernier prix échangé. Les valeurs du jour bougent
+  donc d'un calcul à l'autre (mis en cache 6 h). Pour une mesure stable, regardez la veille.
+- **Références** : QQQ n'est pas accessible à un particulier français (fonds américain non UCITS) ; c'est un
+  indicateur de marché. La retenue de 15 % sur ses dividendes est une hypothèse réglable. Écarts détaillés dans
+  METHODE.md.
+- **Intervalles de confiance** : formule de Lo (2002) pour des rendements indépendants. Avec de l'autocorrélation,
+  l'intervalle réel est plus large que celui affiché.
+- **Biais résiduel** : même en hebdomadaire, Euronext et New York ferment à 4 h 30 d'écart. Comparez le bêta et
+  le bêta de Dimson : un écart signale ce biais.
+- **Taux sans risque** : marche de 8,5 points de base au raccord EONIA / €STR du 01/10/2019 (voir METHODE.md).
+  Si la BCE est injoignable et sans cache, le calcul se fait avec un taux nul et le signale.
+- **Bases d'annualisation** : rendement annualisé en jours calendaires (365), volatilité et ratios en séances (252)
+  ou en semaines (52), selon la convention de chaque mesure.
 - **Petits écarts d'arrondi** entre la courbe de valeur (flottants) et les totaux (`Decimal`) : au plus
   quelques centimes.
 - **Pas de migrations de schéma** (Alembic) : les tables sont créées au démarrage. Un changement de schéma

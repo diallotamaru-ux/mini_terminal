@@ -86,6 +86,57 @@ restent en base 252 séances.
 manquante, jamais nulle : le total est marqué incomplet et le TWR n'est pas calculé. Un jour de transaction sans
 clôture prend le prix de la transaction, marqué comme tel.
 
+### Risque et comparaison (portefeuille réel)
+
+**Série de base.** Le TWR quotidien de la section précédente, par compte et au total. Les rendements du samedi et du
+dimanche (crypto) sont composés dans le lundi suivant, ce qui donne des rendements de jours ouvrés. Une période
+(origine, début d'année, 1, 3 ou 5 ans) est définie par sa date de base $b$ et couvre les jours de $]b,\ \text{date de
+valorisation}]$. La valeur à la clôture de $b$ y est traitée comme un apport en début de premier jour : TWR et TRI de
+la sous-période se calculent alors avec les mêmes fonctions. Une période plus longue que l'historique est refusée.
+
+**Fréquences.**
+
+| Mesures | Fréquence | Raison |
+|---|---|---|
+| Rendement, volatilité, drawdown, VaR, CVaR, Sharpe, Sortino, Calmar | quotidienne (A = 252) | propres à une série : plus d'observations, aucun biais de synchronisation |
+| Bêta, alpha, corrélation, tracking error, ratio d'information | hebdomadaire (A = 52, semaines terminées le vendredi) | mesures croisées entre deux séries |
+
+Euronext clôture à 17 h 30, New York à 22 h (heure de Paris). Un mouvement américain de fin de journée n'apparaît
+que le lendemain dans les cours européens. En quotidien, la covariance entre une série européenne et une série
+américaine est donc biaisée vers zéro (Scholes et Williams, 1977 ; Dimson, 1979). Mesure sur un même indice,
+IWDA.AS (Amsterdam, EUR) contre URTH (New York, converti en EUR), de 2015 à 2026 : corrélation de **0,55 en
+quotidien, 0,90 en hebdomadaire, 0,97 en mensuel**. L'hebdomadaire réduit fortement le biais sans l'annuler : les
+deux places ferment encore à 4 h 30 d'écart le vendredi. D'où un **bêta de Dimson** en complément :
+$\beta_D = \sum_{k=-1}^{1} b_k$ dans la régression $r_t = a + \sum_k b_k\, m_{t+k} + \varepsilon_t$ sur les semaines
+$t-1$, $t$ et $t+1$. Le test `test_asynchronous_closes_bias_daily_correlation` décale une série d'un jour : la
+corrélation quotidienne tombe à 0, l'hebdomadaire vaut 4/5 et le bêta de Dimson retrouve 1.
+
+**Taux sans risque.** EONIA strictement avant le 01/10/2019, €STR ensuite, publiés par la BCE (ECB Data Portal :
+`EON/D.EONIA_TO.RATE` et `EST/B.EU000A2X2A25.WT`). Depuis le 02/10/2019, la BCE définit l'EONIA comme €STR + 8,5
+points de base : le raccord crée une marche de 8,5 pb sur le taux annuel, soit environ 0,0002 % par jour, sans effet
+mesurable. Convention ACT/360 du marché monétaire : $rf_t = R_{t_0}/100 \times (t - t_0)/360$, avec $t_0$ la séance
+précédente (un lundi porte trois jours). Un taux fixe saisi suit la même convention. L'interface indique les séries
+utilisées sur la période affichée. Le taux variant dans le temps, les fonctions de `metrics.py` reçoivent les
+rendements excédentaires $r_t - rf_t$ avec un taux nul : c'est la même formule, avec un taux variable.
+
+**Références.** Indice dividendes réinvestis reconstruit à partir des clôtures (ajustées des seules divisions) et
+des dividendes bruts à l'ex-date, net d'une retenue $\tau$, puis converti en euros au taux du jour :
+$I_t = I_{t-1}\,(P_t + D_t (1-\tau))/P_{t-1}$, puis $I^{EUR}_t = I_t \times FX_t$. Sur 2025, la reconstruction brute de
+QQQ donne +20,766 %, contre +20,773 % pour la clôture ajustée de Yahoo (méthode multiplicative).
+
+| Série | Indice suivi | Écarts connus avec l'indice |
+|---|---|---|
+| **QQQ** (Invesco, New York, USD) | Nasdaq 100 | Frais de 0,18 %/an inclus dans le cours. Retenue de 15 % (convention France – États-Unis) appliquée par hypothèse. Un particulier français ne peut pas acheter QQQ (fonds américain non UCITS) : c'est un indicateur, pas un placement accessible. Conversion en EUR au taux Yahoo du jour, relevé à une autre heure que la clôture de New York. |
+| **IWDA.AS** (iShares Core MSCI World, Amsterdam, EUR) | MSCI World (USD) | Frais de 0,20 %/an. Fonds irlandais capitalisant : les dividendes sont réinvestis dans le fonds, après la retenue qu'il subit (15 % sur les dividendes américains grâce à la convention Irlande – États-Unis, contre 30 % dans l'indice MSCI World Net). Il peut donc battre légèrement son indice net. Fonds en USD coté en EUR : le cours en euros intègre le change, ce qui est voulu. Vérification empirique, Yahoo ne donnant ni ISIN ni description : 11,91 %/an de 2015 à 2026, contre 11,98 % pour URTH converti en EUR. |
+
+**Incertitude.** Intervalle de confiance à 95 % de Lo (2002), pour des rendements i.i.d. : $SR_p = SR/\sqrt{A}$,
+$SE_p = \sqrt{(1 + SR_p^2/2)/n}$, $IC = SR \pm 1{,}96\, SE_p \sqrt{A}$. Il s'applique au Sharpe (quotidien) et au
+ratio d'information (hebdomadaire). Sur 3 ans, la demi-largeur vaut environ 1,13. L'autocorrélation des rendements
+rend cet intervalle trop étroit.
+
+**Règles d'affichage.** Aucun indicateur annualisé sur moins d'un an. Avertissement visible sous 3 ans d'historique.
+Mesures relatives masquées sous 26 semaines. Une valeur manquante rend la série incomplète, et rien n'est calculé.
+
 ### Limites
 
 - Toutes ces mesures sont des **estimations sur le passé**. Pour des rendements i.i.d., l'erreur-type du Sharpe estimé sur $n$ périodes vaut $\sqrt{(1 + S_p^2/2)/n}$, avec $S_p$ le Sharpe par période (Lo, 2002). En données quotidiennes, $S_p$ est petit et l'erreur-type du Sharpe annualisé se réduit à environ $1/\sqrt{T}$, avec $T$ la durée en années. Sur 5 ans : environ 0,45. Un Sharpe estimé de 0,8 a donc un intervalle de confiance à 95 % d'environ $0{,}8 \pm 1{,}96 \times 0{,}45$, soit $[-0{,}1\ ;\ 1{,}7]$.
@@ -93,6 +144,9 @@ clôture prend le prix de la transaction, marqué comme tel.
 - Les données Yahoo Finance sont gratuites et non garanties : erreurs ponctuelles possibles.
 
 ### Sources
+
+- Scholes, M., Williams, J. (1977). *Estimating Betas from Nonsynchronous Data*. Journal of Financial Economics.
+- Dimson, E. (1979). *Risk Measurement When Shares Are Subject to Infrequent Trading*. Journal of Financial Economics.
 
 - Sharpe, W. F. (1994). *The Sharpe Ratio*. Journal of Portfolio Management.
 - Lo, A. W. (2002). *The Statistics of Sharpe Ratios*. Financial Analysts Journal.

@@ -19,6 +19,10 @@ import pandas as pd
 
 TRADING_DAYS = 252
 
+# En deçà, un écart-type quotidien est du bruit d'arrondi (une série constante
+# donne ~1e-18, pas 0) : le ratio correspondant n'est pas défini.
+_TINY_SD = 1e-12
+
 
 # ---------------------------------------------------------------------------
 # Rendements
@@ -113,7 +117,7 @@ def sharpe_ratio(returns: pd.Series, rf_annual: float = 0.0,
     """
     excess = returns - daily_rf(rf_annual, periods)
     sd = excess.std(ddof=1)
-    if sd == 0 or np.isnan(sd):
+    if np.isnan(sd) or sd < _TINY_SD:
         return np.nan
     return float(excess.mean() / sd * np.sqrt(periods))
 
@@ -146,7 +150,7 @@ def beta(returns: pd.Series, bench: pd.Series) -> float:
     """beta = Cov(r_i, r_b) / Var(r_b)."""
     df = pd.concat([returns, bench], axis=1).dropna()
     var_b = df.iloc[:, 1].var(ddof=1)
-    if var_b == 0:
+    if np.isnan(var_b) or var_b < _TINY_SD ** 2:
         return np.nan
     return float(df.cov(ddof=1).iloc[0, 1] / var_b)
 
@@ -176,10 +180,10 @@ def information_ratio(returns: pd.Series, bench: pd.Series,
                       periods: int = TRADING_DAYS) -> float:
     """IR = mean(r_i - r_b) * A / TE."""
     active = (returns - bench).dropna()
-    te = active.std(ddof=1) * np.sqrt(periods)
-    if te == 0:
+    sd = active.std(ddof=1)
+    if np.isnan(sd) or sd < _TINY_SD:
         return np.nan
-    return float(active.mean() * periods / te)
+    return float(active.mean() * periods / (sd * np.sqrt(periods)))
 
 
 # ---------------------------------------------------------------------------

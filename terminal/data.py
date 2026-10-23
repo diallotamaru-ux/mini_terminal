@@ -125,22 +125,15 @@ DEMO_PROFILE = {
     "BTC-USD": (0.40, 0.65, 0.90),
     "GLD":     (0.07, 0.15, 0.05),
     "TLT":     (0.02, 0.15, -0.15),
-    # Univers du portefeuille de démonstration (terminal.marketdata.simulated)
-    "PANX.PA": (0.13, 0.23, 1.00),
-    "CW8.PA":  (0.09, 0.15, 0.70),
-    "BTC-EUR": (0.40, 0.65, 0.90),
-    "AAPL":    (0.16, 0.28, 1.10),
-    "MC.PA":   (0.10, 0.28, 0.80),
-    "ASML.AS": (0.15, 0.35, 1.30),
-    "IWDA.AS": (0.09, 0.15, 0.70),
 }
 
 
 def demo_prices(tickers: list[str], start: str, end: str | None = None,
-                seed: int = 7) -> pd.DataFrame:
+                seed: int = 7, profile: dict | None = None) -> pd.DataFrame:
     """
     Modèle à un facteur avec queues épaisses :
         r_i,t = mu_i,d + beta_i * f_t + e_i,t
+    `profile` : paramètres (mu, sigma, bêta) par ticker ; DEMO_PROFILE par défaut.
     f_t et e_i,t suivent des lois de Student à 4 degrés de liberté, normalisées
     à variance unité puis mises à l'échelle. Ces données sont FICTIVES :
     elles servent à tester le code, pas à prendre une décision.
@@ -156,7 +149,7 @@ def demo_prices(tickers: list[str], start: str, end: str | None = None,
 
     cols = {}
     for t in tickers:
-        mu, sig, b = DEMO_PROFILE.get(t, (0.08, 0.25, 0.8))
+        mu, sig, b = (DEMO_PROFILE if profile is None else profile).get(t, (0.08, 0.25, 0.8))
         sig_d = sig / np.sqrt(A)
         idio_var = max(sig_d ** 2 - (b * sigma_f) ** 2, (0.2 * sig_d) ** 2)
         e = rng.standard_t(nu, n) * scale_t * np.sqrt(idio_var)

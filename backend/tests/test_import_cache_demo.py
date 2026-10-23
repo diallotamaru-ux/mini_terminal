@@ -243,6 +243,9 @@ def test_demo_mode_seeds_once_and_is_flagged():
         s = c.get("/api/portfolio/summary").json()
         assert s["meta"]["simulated"] is True and s["complete"] is True
         assert s["meta"]["warnings"] == []          # jeu de démo cohérent : aucun solde négatif
+        # Le DCA du PEA investit vraiment : les espèces restent inférieures à deux mois de versements.
+        pea = next(a for a in s["accounts"] if a["kind"] == "PEA")
+        assert Decimal(pea["cash_eur"]) < 800 and Decimal(pea["securities_eur"]) > 10 * Decimal(pea["cash_eur"])
         adj = c.get("/api/portfolio/positions").json()["split_adjustments"]
         assert [(a["ticker"], a["quantity_before"], a["quantity_after"]) for a in adj] == [("NVDA", "2", "20")]
         assert c.get("/api/meta").json()["simulated"] is True

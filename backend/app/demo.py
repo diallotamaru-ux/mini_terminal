@@ -73,16 +73,20 @@ def seed(s: Session, provider: MarketDataProvider, today: dt.date | None = None)
         s.add(models.Transaction(account_id=acc.id, listing_id=listing.id if listing else None, date=d,
                                  type=kind, currency=kw.pop("currency", "EUR"), **kw))
 
+    pending = {"PANX.PA": Decimal(0), "CW8.PA": Decimal(0)}
     for m in _months(START, today):
         d = m + dt.timedelta(days=4)
         if d > today:
             break
         add(pea, "DEPOT", d, amount=Decimal(400))
         for t in ("PANX.PA", "CW8.PA"):
+            # 200 € par mois et par ETF ; pas de fraction au PEA : le reliquat est reporté.
+            pending[t] += Decimal(200)
             day, p = px(t, d)
-            q = (Decimal(200) / p).quantize(Decimal(1), ROUND_DOWN)        # pas de fraction au PEA
+            q = (pending[t] / p).quantize(Decimal(1), ROUND_DOWN)
             if q > 0:
                 add(pea, "ACHAT", d, listings[t], quantity=q, price=p, fees=Decimal("0.00"))
+                pending[t] -= q * p
         day, p = px("BTC-EUR", d)
         q = ((Decimal(100) - Decimal("1.50")) / p).quantize(Decimal("0.00000001"), ROUND_DOWN)
         add(cry, "ACHAT", d, listings["BTC-EUR"], quantity=q, price=p, fees=Decimal("1.50"))

@@ -208,3 +208,21 @@ def test_simulated_dividends(sim):
     px = sim.daily_closes("QQQ", date(2024, 1, 1), date(2024, 12, 31)).closes
     assert d.iloc[0] == pytest.approx(px.loc[d.index[0]] * 0.0015)
     assert sim.dividends("IWDA.AS", A, B).closes.empty
+
+
+def test_demo_universe_is_plausible(sim):
+    # Les rendements et volatilités réalisés de la démo restent dans des ordres de grandeur historiques.
+    import numpy as np
+    from terminal.marketdata.simulated import KIND, PLAUSIBLE
+    px = sim._prices.loc["2021-01-04":"2026-10-23"]
+    years = (px.index[-1] - px.index[0]).days / 365.25
+    for t in px:
+        s = px[t]
+        ann = (s.iloc[-1] / s.iloc[0]) ** (1 / years) - 1
+        vol = s.pct_change().std() * np.sqrt(252)
+        lo, hi, vlo, vhi = PLAUSIBLE[KIND[t]]
+        assert lo <= ann <= hi and vlo <= vol <= vhi, (t, ann, vol)
+    b3 = px["BTC-EUR"].loc["2023-10-23":]
+    assert b3.iloc[-1] / b3.iloc[0] - 1 <= 3.0
+    w = px.resample("W-FRI").last().pct_change().dropna().corr()
+    assert w.loc["QQQ", "PANX.PA"] > 0.9 and w.loc["IWDA.AS", "CW8.PA"] > 0.9

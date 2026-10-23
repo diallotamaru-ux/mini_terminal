@@ -24,6 +24,33 @@ from .base import InstrumentInfo, MarketDataProvider, PriceSeries, clean_series
 
 SIM_START = "2015-01-01"
 SIM_END = "2030-12-31"
+
+# Profils de long terme (rendement espéré mu, volatilité sigma, bêta au facteur commun de
+# volatilité 20 %). Les ETF d'un même indice ont un bêta qui porte presque toute leur
+# variance : corrélation hebdomadaire d'environ 0,96, comme dans la réalité.
+SIM_PROFILE = {
+    "QQQ":     (0.14, 0.22, 1.10),
+    "PANX.PA": (0.13, 0.23, 1.14),
+    "IWDA.AS": (0.09, 0.15, 0.75),
+    "CW8.PA":  (0.09, 0.15, 0.75),
+    "AAPL":    (0.15, 0.28, 1.10),
+    "MC.PA":   (0.09, 0.27, 0.80),
+    "ASML.AS": (0.14, 0.35, 1.30),
+    "NVDA":    (0.30, 0.50, 1.60),
+    "BTC-EUR": (0.30, 0.65, 0.60),
+}
+
+# Une trajectoire simulée reste un tirage. La graine est la première (en partant de 0)
+# dont les rendements et volatilités réalisés du 04/01/2021 au 23/10/2026 restent dans des
+# ordres de grandeur historiques (test test_demo_universe_is_plausible) :
+#   indices : 3 % à 18 % par an, volatilité 12 % à 28 % ;
+#   actions : -10 % à 35 % par an, volatilité 18 % à 60 % ;
+#   bitcoin : 5 % à 60 % par an, volatilité 45 % à 80 %, au plus +300 % sur les 3 dernières années.
+SIM_SEED = 0
+PLAUSIBLE = {"index": (0.03, 0.18, 0.12, 0.28), "stock": (-0.10, 0.35, 0.18, 0.60),
+             "btc": (0.05, 0.60, 0.45, 0.80)}
+KIND = {"QQQ": "index", "PANX.PA": "index", "IWDA.AS": "index", "CW8.PA": "index", "AAPL": "stock",
+        "MC.PA": "stock", "ASML.AS": "stock", "NVDA": "stock", "BTC-EUR": "btc"}
 SOURCE = "Simulation (données fictives)"
 
 _TICKER_RE = re.compile(r"^[A-Z0-9][A-Z0-9.\-^=]{0,19}$")
@@ -45,8 +72,8 @@ class SimulatedProvider(MarketDataProvider):
     simulated = True
 
     def __init__(self) -> None:
-        self._universe = list(data.DEMO_PROFILE)
-        self._prices = data.demo_prices(self._universe, SIM_START, SIM_END)
+        self._universe = list(SIM_PROFILE)
+        self._prices = data.demo_prices(self._universe, SIM_START, SIM_END, seed=SIM_SEED, profile=SIM_PROFILE)
         self._extra: dict[str, pd.Series] = {}
 
     def _series(self, ticker: str) -> pd.Series:

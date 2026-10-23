@@ -16,7 +16,11 @@ aucun identifiant stocké.
 | **Positions (thème clair)** | **Positions sur mobile** |
 | ![Positions](docs/captures/positions-clair.png) | ![Mobile](docs/captures/positions-mobile.png) |
 
-*Captures en mode démo : cours et transactions simulés, signalés par le bandeau en haut de page.*
+*Captures en mode démo : cours et transactions simulés, signalés par le bandeau en haut de page. Les cours simulés
+suivent des profils de long terme (Nasdaq 100 : 14 % d'espérance, 22 % de volatilité ; MSCI World : 9 % et 15 % ;
+bitcoin : 30 % et 65 %). La graine retenue est la première dont la trajectoire 2021-2026 reste dans des ordres de
+grandeur historiques, selon des critères écrits et testés (`terminal/marketdata/simulated.py`). Ce n'est pas une
+trajectoire choisie pour flatter le portefeuille.*
 
 ## État du projet
 

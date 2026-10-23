@@ -9,3 +9,6 @@ frontend/dist/
 *.sqlite3
 .coverage
 htmlcov/
+data/
+*.db-wal
+*.db-shm

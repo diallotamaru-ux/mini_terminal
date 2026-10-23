@@ -1,70 +1,164 @@
 # Mini-terminal
 
-Tableau de bord d'analyse de portefeuille en Python : performance, risque, et diversification réelle.
-Données gratuites via Yahoo Finance (`yfinance`).
+Application web d'analyse de portefeuille personnel, construite à partir des **transactions réelles** :
+positions, prix de revient, plus-values, et performance mesurée de deux façons (TWR et TRI).
+Devise de référence : l'euro. Plusieurs comptes (compte-titres, PEA, crypto), actifs cotés en EUR ou en USD.
+
+L'application **lit et analyse, elle n'agit pas** : aucune exécution d'ordre, aucune connexion à un courtier,
+aucun identifiant stocké.
+
+| Tableau de bord (thème sombre) | Performance |
+|---|---|
+| ![Tableau de bord](docs/captures/tableau-de-bord.png) | ![Performance](docs/captures/performance.png) |
+| **Positions (thème clair)** | **Positions sur mobile** |
+| ![Positions](docs/captures/positions-clair.png) | ![Mobile](docs/captures/positions-mobile.png) |
+
+*Captures en mode démo : cours et transactions simulés, signalés par le bandeau en haut de page.*
+
+## État du projet
+
+| Phase | Contenu | État |
+|---|---|---|
+| 1 | Comptes, transactions, import CSV, positions, PRU, plus-values, TWR, TRI, tableau de bord | **terminée** |
+| 2 | Indicateurs de risque sur le TWR réel, comparaison au Nasdaq 100 en EUR, intervalle de confiance du Sharpe | à venir |
+| 3 | Corrélations, contributions au risque, ENB (ACP et torsion minimale), simulateur | à venir |
+| 4 | Fiche par action, DCF inversé | à venir |
 
 ## Installation
 
-```bash
+Prérequis : Python 3.12+, Node.js 20.19+ (testé avec 26.9). Docker est facultatif.
+
+### Développement, sans Docker
+
+```powershell
 python -m venv .venv
-source .venv/bin/activate          # Windows : .venv\Scripts\activate
-pip install -r requirements.txt
+.venv\Scripts\python -m pip install -r requirements-dev.txt
+cd frontend; npm install; cd ..
+
+.\scripts\dev.ps1            # données réelles (Yahoo Finance)
+.\scripts\dev.ps1 -Demo      # données simulées, base séparée pré-remplie
 ```
 
-## Utilisation
+Le script ouvre deux fenêtres : l'API sur http://127.0.0.1:8000 (documentation interactive sur `/docs`) et
+l'interface sur **http://localhost:5173**. À la main, sous macOS ou Linux :
 
 ```bash
-streamlit run app.py               # tableau de bord interactif (navigateur)
-python report.py                   # rapport HTML autonome : rapport.html
-python report.py --theme light     # version fond clair, pour un article de blog
-python report.py --demo            # données simulées, sans connexion
-python -m pytest -q                # 18 tests sur cas analytiques connus
+.venv/bin/python -m uvicorn backend.app.main:create_app --factory --reload   # MT_DEMO=1 pour la démo
+cd frontend && npm run dev
 ```
 
-Modifiez `config.py` pour vos actifs, vos poids et votre indice de référence.
+### Avec Docker
+
+```bash
+docker compose up --build              # http://localhost:8080
+MT_DEMO=1 docker compose up --build    # mode démo
+```
+
+La base SQLite est conservée dans le volume `mt-data`.
+
+### Tests
+
+```powershell
+.venv\Scripts\python -m pytest --cov      # 138 tests ; couverture du module de calcul : 97 %
+cd frontend; npx tsc -p .                # vérification des types
+```
+
+### Réglages (variables d'environnement, préfixe `MT_`, ou fichier `.env`)
+
+| Variable | Défaut | Rôle |
+|---|---|---|
+| `MT_DEMO` | `0` | `1` : fournisseur simulé et base `data/demo.db` pré-remplie |
+| `MT_PROVIDER` | `yahoo` | `yahoo` ou `simule` |
+| `MT_DB_PATH` | `data/mini_terminal.db` | fichier SQLite |
+| `MT_CACHE_TTL_MINUTES` | `360` | durée de validité du cache des cours du jour |
+
+## Premiers pas
+
+1. **Comptes et titres** : créez vos comptes. Pour chacun, choisissez une convention de flux :
+   - *avec espèces* : vous saisissez dépôts et retraits, et le solde d'espèces fait partie du compte ;
+   - *titres seuls* : chaque achat est un apport, chaque vente un retrait (pratique pour la crypto).
+2. Ajoutez vos cotations par leur ticker Yahoo (`PANX.PA`, `CW8.PA`, `AAPL`, `BTC-EUR`). La devise est lue chez
+   le fournisseur. L'ISIN est facultatif ; il regroupe plusieurs cotations d'un même titre.
+3. **Transactions** : saisie manuelle, ou import CSV avec aperçu avant écriture. Format :
+   [`docs/FORMAT_CSV.md`](docs/FORMAT_CSV.md), exemple : [`examples/transactions_exemple.csv`](examples/transactions_exemple.csv).
 
 ## Architecture
 
 ```
 mini_terminal/
-├── app.py              Tableau de bord Streamlit (interface seule, aucun calcul)
-├── report.py           Rapport HTML statique, publiable sur un site
-├── config.py           Paramètres par défaut
-├── METHODE.md          Formules, conventions, limites, sources
-├── terminal/
-│   ├── data.py         Téléchargement, cache, devises, alignement des calendriers, mode démo
-│   ├── metrics.py      Indicateurs : fonctions pures, sans réseau
-│   ├── engine.py       Orchestration : Config -> Results
-│   ├── charts.py       Graphiques Plotly (thèmes sombre et clair)
-│   └── views.py        Assemblage des graphiques et mise en forme des tables
-└── tests/
-    └── test_metrics.py
+├── terminal/                 Cœur de calcul : aucune dépendance web, base ou réseau (sauf yahoo.py)
+│   ├── ledger.py             Comptes, transactions (Decimal), validation, règle unique des flux externes
+│   ├── positions.py          Quantités, PRU (PMP), PV latente et réalisée, espèces, en devise et en EUR
+│   ├── valuation.py          Valorisation quotidienne par compte, flux externes, poche titres
+│   ├── performance.py        TWR, TRI (Brent), annualisation
+│   ├── metrics.py            Indicateurs de risque (Sharpe, Sortino, bêta…) : phases 2 et 3
+│   ├── marketdata/
+│   │   ├── base.py           Interface MarketDataProvider et erreurs typées
+│   │   ├── yahoo.py          Implémentation yfinance (seul fichier qui l'importe)
+│   │   └── simulated.py      Implémentation simulée (tests, démo)
+│   └── data.py, engine.py, charts.py, views.py   utilisés par legacy/
+├── backend/app/              FastAPI + SQLAlchemy 2 + SQLite
+│   ├── models.py, db.py      Tables ; type DecimalText (Decimal exact dans SQLite)
+│   ├── market.py             Cache des cours en base, devant n'importe quel fournisseur
+│   ├── services/             portfolio.py (base -> cœur -> réponses), csv_import.py, ledger_check.py
+│   └── routers/              accounts, listings, transactions, portfolio, imports, meta
+├── frontend/                 React + TypeScript + Vite + Tailwind ; Lightweight Charts, ECharts
+├── tests/, backend/tests/    Tests du cœur et de l'API
+├── docs/                     Format CSV, captures
+├── examples/                 Fichier CSV d'exemple
+├── legacy/                   Ancienne application Streamlit et rapport HTML (non maintenus)
+└── METHODE.md                Formules, conventions, limites, sources
 ```
 
-Principe : les calculs (`metrics.py`) ne connaissent ni le réseau ni l'interface.
-On peut donc les tester isolément et réutiliser le moteur dans un autre contexte.
+Principes :
 
-## Indicateurs
+- **Le calcul ne connaît ni le web ni la base.** `terminal/` reçoit des transactions et des séries de cours,
+  et renvoie des résultats. Le backend ne fait que charger, appeler et mettre en forme.
+- **Changer de fournisseur de données** se fait dans un seul fichier : une nouvelle classe qui implémente
+  `MarketDataProvider`, enregistrée dans `terminal/marketdata/__init__.py`. Le cache en base fonctionne avec
+  n'importe laquelle.
+- **Montants exacts.** `Decimal` dans la base (stocké en texte : `Numeric` serait un flottant dans SQLite), dans
+  le grand livre et dans l'API (chaînes JSON). Les flottants ne servent qu'aux séries statistiques.
+- **Rien n'est inventé.** Une donnée manquante vaut `null` et s'affiche « manquant » ; un total incomplet n'est
+  pas affiché. Les données simulées déclenchent un bandeau sur toutes les pages. Chaque bloc indique sa date
+  de valorisation et ses sources.
+- **Validation complète à chaque écriture.** Ajout, modification, suppression et import revalident tout
+  l'historique : vente à découvert, dépôt sur un compte « titres seuls », devise incohérente sont refusés.
 
-Rendement total, CAGR, volatilité, Sharpe, Sortino, max drawdown, Calmar, VaR et CVaR historiques,
-bêta, alpha de Jensen, tracking error, ratio d'information, contributions au risque (Euler),
-nombre effectif de paris (ACP et torsion minimale). Détails et formules dans `METHODE.md`.
+Méthode de calcul détaillée : [`METHODE.md`](METHODE.md).
 
-## Publier sur mathascience.com
+## Limites connues
 
-Streamlit exige un serveur Python : un site WordPress ne peut pas l'exécuter. Deux options :
+- **Écarts avec les courtiers.** La valeur affichée peut différer de celle de vos courtiers, pour plusieurs raisons :
+  - le taux de change (taux de marché Yahoo, et non celui du courtier) ;
+  - la place de cotation (Yahoo prend la clôture d'Euronext ou du Nasdaq, Trade Republic valorise sur LS Exchange) ;
+  - l'heure (en séance, Yahoo renvoie un cours intrajournalier, mis en cache 6 h) ;
+  - pour la crypto, la source du prix.
+- **Yahoo Finance** est gratuit et non garanti : erreurs ponctuelles, données parfois absentes. Une panne
+  n'efface rien : le dernier cache est servi, et sa date est indiquée.
+- **Pas d'import direct des relevés Trade Republic ou Fortuneo** : il faut passer par le format CSV documenté.
+- **Pas de virements entre comptes** : un transfert se saisit comme un retrait sur un compte et un dépôt sur
+  l'autre. Chaque compte reste juste. Pour le portefeuille total, le transfert compte en revanche comme un retrait
+  et un apport le même jour, au lieu de ne rien changer. Les apports nets restent justes et l'effet sur le TWR est
+  très faible (le rendement de ce jour-là est légèrement amorti).
+- **Opérations sur titres non gérées** : division d'actions (les cours Yahoo sont ajustés, pas vos quantités
+  saisies), fusion, attribution gratuite, staking. Frais prélevés en crypto non gérés : les saisir en EUR.
+- **Fiscalité non calculée** : pas d'impôt latent, pas de règles PEA (plafond, retraits). Les dividendes sont
+  saisis nets.
+- **Devise de référence fixe** : EUR uniquement.
+- **Performance depuis l'origine uniquement** : pas encore de sélection de période (1 an, début d'année).
+- **Petits écarts d'arrondi** entre la courbe de valeur (flottants) et les totaux (`Decimal`) : au plus
+  quelques centimes.
+- **Pas de migrations de schéma** (Alembic) : les tables sont créées au démarrage. Un changement de schéma
+  dans une phase suivante demandera une migration ou une recréation de la base.
+- **Interface sans authentification** : prévue pour un usage local. Ne l'exposez pas sur Internet telle quelle.
 
-1. **Rapport statique.** `python report.py --theme light`, puis intégrer `rapport.html`
-   (bloc HTML personnalisé ou iframe). Les graphiques restent interactifs.
-2. **Application en ligne.** Pousser le dépôt sur GitHub, le déployer gratuitement sur
-   Streamlit Community Cloud, et mettre le lien dans l'article.
+## Ancienne version
 
-## Pièges connus
+L'application Streamlit d'origine (portefeuille théorique à poids constants) reste dans `legacy/` :
 
-- **Devises.** Sans conversion, un ETF en euros et une action en dollars sont mesurés chacun
-  dans sa devise. Pour un investisseur en euros, choisir `EUR` dans la devise de calcul.
-- **Calendriers.** La crypto cote 7 j/7. Seules les dates communes sont gardées : le rendement
-  du lundi inclut le week-end.
-- **Rééquilibrage.** Le portefeuille est supposé rééquilibré chaque jour à poids constants.
-- **Petits échantillons.** Sur 5 ans de données quotidiennes, l'erreur-type d'un Sharpe annualisé
-  vaut environ 0,45. Ne pas sur-interpréter un écart de 0,2.
+```powershell
+.venv\Scripts\python -m pip install -r legacy\requirements.txt
+.venv\Scripts\streamlit run legacy\app.py
+.venv\Scripts\python legacy\report.py --demo     # rapport HTML autonome
+```

@@ -1,0 +1,24 @@
+# Lancement complet : docker compose up --build, puis http://localhost:8080
+# Mode démo (données simulées) : MT_DEMO=1 docker compose up --build
+services:
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      MT_DEMO: ${MT_DEMO:-0}
+      MT_PROVIDER: ${MT_PROVIDER:-yahoo}
+    volumes:
+      - mt-data:/app/data
+    restart: unless-stopped
+
+  web:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  mt-data:

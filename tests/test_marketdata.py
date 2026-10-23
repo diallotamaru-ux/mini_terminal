@@ -80,6 +80,14 @@ class FakeTicker:
         self.fast_info = {"currency": spec.get("currency")}
 
     @property
+    def dividends(self):
+        if self._spec.get("splits_error"):
+            raise RuntimeError("panne réseau")
+        raw = self._spec.get("dividends", {})
+        idx = pd.DatetimeIndex(list(raw)).tz_localize("America/New_York")
+        return pd.Series(list(raw.values()), index=idx, dtype=float)
+
+    @property
     def splits(self):
         if self._spec.get("splits_error"):
             raise RuntimeError("panne réseau")
@@ -113,6 +121,8 @@ def yahoo(monkeypatch):
         "AAPL": {"currency": "USD", "closes": [190.0, 191.0]},
         "NVDA": {"currency": "USD", "splits": {"2021-07-20": 4.0, "2024-06-10": 10.0}},
         "REV": {"currency": "USD", "splits": {"2024-01-02": 0.125}},
+        "QQQ": {"currency": "USD", "dividends": {"2023-12-18": 0.6, "2024-03-18": 0.57, "2024-06-24": 0.58}},
+        "VOD.DIV": {"currency": "GBp", "dividends": {"2024-02-01": 400.0}},
         "SPLITDOWN": {"currency": "USD", "splits_error": True},
         "VOD.L": {"currency": "GBp", "closes": [7000.0]},
         "USDEUR=X": {"closes": [0.91, 0.92]},
@@ -181,3 +191,20 @@ def test_simulated_splits(sim):
     assert sim.splits("PANX.PA") == []
     with pytest.raises(UnknownTicker):
         sim.splits("pas un ticker!")
+
+
+def test_yahoo_dividends(yahoo):
+    d = yahoo.dividends("QQQ", date(2024, 1, 1), date(2024, 12, 31))
+    assert d.closes.tolist() == [0.57, 0.58] and d.closes.index.tz is None
+    assert yahoo.dividends("AAPL", A, B).closes.empty
+    assert yahoo.dividends("VOD.DIV", A, B).closes.tolist() == [4.0]          # pence -> livres
+    with pytest.raises(ProviderUnavailable):
+        yahoo.dividends("SPLITDOWN", A, B)
+
+
+def test_simulated_dividends(sim):
+    d = sim.dividends("QQQ", date(2024, 1, 1), date(2024, 12, 31)).closes
+    assert len(d) == 4 and all(x.month in (3, 6, 9, 12) for x in d.index)
+    px = sim.daily_closes("QQQ", date(2024, 1, 1), date(2024, 12, 31)).closes
+    assert d.iloc[0] == pytest.approx(px.loc[d.index[0]] * 0.0015)
+    assert sim.dividends("IWDA.AS", A, B).closes.empty

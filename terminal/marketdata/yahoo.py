@@ -106,3 +106,17 @@ class YahooProvider(MarketDataProvider):
             return []
         s = clean_series(raw)
         return [Split.from_ratio(ticker, pd.Timestamp(d).date(), float(r)) for d, r in s.items() if r > 0]
+
+    def dividends(self, ticker: str, start: date, end: date) -> PriceSeries:
+        yf = _yf()
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                raw = yf.Ticker(ticker).dividends
+        except Exception as e:
+            raise ProviderUnavailable("yahoo", str(e)) from e
+        s = clean_series(raw) if raw is not None and len(raw) else pd.Series(dtype=float)
+        if len(s) and self._raw_currency(ticker) == "GBp":
+            s = s / 100.0
+        s = s.loc[pd.Timestamp(start):pd.Timestamp(end)] if len(s) else s
+        return PriceSeries(ticker, s, SOURCE)

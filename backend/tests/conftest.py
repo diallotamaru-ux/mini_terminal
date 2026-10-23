@@ -35,6 +35,7 @@ class FixedProvider(MarketDataProvider):
         self.fx = {"USD": 0.9}
         self.down: set[str] = {"DOWN.PA"}
         self.split_data: dict[str, list[Split]] = {}
+        self.dividend_data: dict[str, pd.Series] = {}
         self.calls: list[str] = []
 
     def _series(self, steps, start, end):
@@ -57,6 +58,13 @@ class FixedProvider(MarketDataProvider):
         if currency not in self.fx:
             raise MissingCurrency(currency)
         return PriceSeries(currency, self._series([(9999, self.fx[currency])], start, end), "Change de test")
+
+    def dividends(self, ticker, start, end):
+        self.calls.append(f"DIV:{ticker}")
+        if ticker in self.down:
+            raise ProviderUnavailable("fixe", "panne simulée")
+        d = self.dividend_data.get(ticker, pd.Series(dtype=float))
+        return PriceSeries(ticker, d.loc[pd.Timestamp(start):pd.Timestamp(end)] if len(d) else d, "Dividendes de test")
 
     def splits(self, ticker):
         self.calls.append(f"SPLITS:{ticker}")

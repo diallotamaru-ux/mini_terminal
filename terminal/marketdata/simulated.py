@@ -33,6 +33,9 @@ _EUR_SUFFIXES = (".PA", ".AS", ".DE", ".MI", ".MC", ".BR", "-EUR")
 # une transaction saisie avant la date doit l'être en prix d'origine (x 10 ici).
 SIM_SPLITS = {"NVDA": [(date(2024, 6, 10), 10, 1)]}
 
+# Dividendes simulés : taux trimestriel versé à la mi-mars, juin, septembre, décembre.
+SIM_DIVIDEND_YIELD_Q = {"QQQ": 0.0015}
+
 # Niveau moyen des taux simulés (euros pour une unité de devise).
 _FX_LEVEL = {"USD": 0.90, "GBP": 1.17, "CHF": 1.03, "JPY": 0.0063, "CAD": 0.67}
 
@@ -87,3 +90,13 @@ class SimulatedProvider(MarketDataProvider):
     def splits(self, ticker: str) -> list[Split]:
         self._series(ticker)
         return [Split(ticker, d, n, m) for d, n, m in SIM_SPLITS.get(ticker, [])]
+
+    def dividends(self, ticker: str, start: date, end: date) -> PriceSeries:
+        s = self._series(ticker)
+        q = SIM_DIVIDEND_YIELD_Q.get(ticker)
+        if not q:
+            return PriceSeries(ticker, pd.Series(dtype=float), SOURCE, simulated=True)
+        ex = [d for d in s.index if d.month in (3, 6, 9, 12) and 15 <= d.day <= 21 and d.day_of_week == 0]
+        out = pd.Series({d: float(s.loc[d]) * q for d in ex}, dtype=float)
+        return PriceSeries(ticker, clean_series(out.loc[pd.Timestamp(start):pd.Timestamp(end)]), SOURCE,
+                           simulated=True)

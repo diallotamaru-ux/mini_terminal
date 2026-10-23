@@ -94,11 +94,11 @@ class Transaction(Base):
 
 
 class MarketBar(Base):
-    """Cache des cours et des taux. `symbol` : ticker, ou « FX:USD » pour un taux."""
+    """Cache des cours, taux et dividendes. `symbol` : ticker, « FX:USD », « DIV:QQQ », « RATE:ESTR »."""
 
     __tablename__ = "market_bars"
 
-    symbol: Mapped[str] = mapped_column(String(24), primary_key=True)
+    symbol: Mapped[str] = mapped_column(String(32), primary_key=True)
     date: Mapped[dt.date] = mapped_column(Date, primary_key=True)
     value: Mapped[Decimal] = mapped_column(DecimalText)
 
@@ -118,7 +118,7 @@ class MarketRange(Base):
     """Plage déjà téléchargée pour un symbole, avec sa source."""
 
     __tablename__ = "market_ranges"
-    symbol: Mapped[str] = mapped_column(String(24), primary_key=True)
+    symbol: Mapped[str] = mapped_column(String(32), primary_key=True)
     start: Mapped[dt.date] = mapped_column(Date)
     end: Mapped[dt.date] = mapped_column(Date)
     source: Mapped[str] = mapped_column(String(80))

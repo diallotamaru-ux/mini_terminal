@@ -57,6 +57,10 @@ class CachedProvider(MarketDataProvider):
     def instrument_info(self, ticker: str) -> InstrumentInfo:
         return self.inner.instrument_info(ticker)
 
+    def dividends(self, ticker: str, start: date, end: date) -> PriceSeries:
+        return self._get(f"DIV:{ticker}", ticker, start, end,
+                         lambda s, e: self.inner.dividends(ticker, s, e))
+
     def splits(self, ticker: str) -> list[Split]:
         symbol = f"SPLITS:{ticker}"
         with self.sessions() as s:

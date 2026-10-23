@@ -6,6 +6,7 @@ import datetime as dt
 from decimal import Decimal
 from pathlib import Path
 
+import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
@@ -276,3 +277,13 @@ def test_split_cache(cache):
     with pytest.raises(ProviderUnavailable):
         c.splits("DOWN.PA")                                         # panne sans cache
     assert c.splits("BBB.PA") == []
+
+
+def test_dividend_cache(cache):
+    c, inner, clock, _ = cache
+    inner.dividend_data["AAA.PA"] = pd.Series([1.5], index=[pd.Timestamp(days_ago(20))])
+    a = c.dividends("AAA.PA", days_ago(30), days_ago(5))
+    b = c.dividends("AAA.PA", days_ago(25), days_ago(10))
+    assert a.closes.tolist() == b.closes.tolist() == [1.5]
+    assert inner.calls.count("DIV:AAA.PA") == 1
+    assert c.dividends("BBB.PA", days_ago(30), days_ago(5)).closes.empty

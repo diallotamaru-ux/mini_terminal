@@ -12,6 +12,9 @@ Conventions
 - `fx_rates(devise)` renvoie le nombre d'euros pour une unité de `devise`.
 - `splits(ticker)` renvoie l'historique complet des divisions, qui sert à
   ajuster les transactions saisies avant chacune (voir terminal/splits.py).
+- `dividends(ticker)` renvoie les dividendes bruts par action, datés de leur
+  ex-date, dans la devise de cotation et dans l'unité des cours (ajustés des
+  divisions). Ils servent à construire les références dividendes réinvestis.
 - Index : dates calendaires sans fuseau horaire, triées, sans doublon.
 """
 
@@ -78,3 +81,7 @@ class MarketDataProvider(ABC):
     @abstractmethod
     def splits(self, ticker: str) -> list[Split]:
         """Divisions et regroupements de `ticker`, du plus ancien au plus récent. Liste vide s'il n'y en a pas."""
+
+    @abstractmethod
+    def dividends(self, ticker: str, start: date, end: date) -> PriceSeries:
+        """Dividendes bruts par action sur [start, end], indexés par ex-date. Série vide s'il n'y en a pas."""

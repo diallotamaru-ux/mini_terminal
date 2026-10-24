@@ -252,11 +252,175 @@ change rien (testé, dans les deux modes).
 **Recoupement réel** (4 lignes, dont une en USD et une crypto, estimateur empirique, 1 an au 23/10/2026) : corrélations
 identiques à un calcul indépendant à 4·10⁻⁵ près (arrondi), volatilité 14,0695 % des deux côtés.
 
+### Valorisation : DCF inversé
+
+**Question posée.** On ne cherche pas une « valeur juste ». On cherche la croissance annuelle $g$ du flux disponible
+que le prix actuel suppose pendant $N$ ans, avant une croissance terminale $g_{term}$ à perpétuité. Le résultat est une
+lecture d'hypothèses, jamais une recommandation. La phrase affichée reste neutre : « Le prix actuel suppose une
+croissance du flux disponible de X % par an pendant N ans, puis de Y % par an à perpétuité, avec un coût du capital
+de Z %. »
+
+**Périmètre.** Seules les actions sont analysées.
+- ETF et fonds : ils se lisent par les sociétés qu'ils contiennent, ils n'ont pas de flux propre.
+- Cryptoactifs : aucun flux à actualiser.
+- Banques et assurances (industrie Yahoo commençant par `Banks`, `Insurance -` ou `Reinsurance`, ou forçage sur la
+  fiche) : la dette est leur matière première, le flux disponible pour l'entreprise n'a pas de sens.
+
+**Flux et valeur : ne jamais mélanger.** Le flux retenu est le FCFF, flux disponible pour l'**entreprise**, avant
+paiement des créanciers. Il est actualisé au coût du capital et comparé à la **valeur d'entreprise** :
+
+$$VE = \text{cours} \times \text{change} \times \text{actions diluées} + \text{dette} - \text{trésorerie et placements} + \text{intérêts minoritaires}$$
+
+Comparer un FCFF à la seule capitalisation ignorerait la dette. Comparer un flux des actionnaires (après intérêts) à
+la VE compterait la dette deux fois. Le code n'offre qu'une voie (`implied_growth(fcff0, ev, …)`), ce qui rend le
+mélange impossible. Les minoritaires sont ajoutés parce que le FCFF consolidé inclut leur part.
+
+**FCFF par exercice.**
+
+$$FCFF = OCF - |capex| + \text{intérêts} \times (1 - t) - \text{rémunération en actions}$$
+
+- **Intérêts** : on ne les rajoute que s'ils ont été retranchés de l'OCF. C'est toujours le cas en US GAAP. En IFRS,
+  la société choisit de classer les intérêts versés en exploitation ou en financement : c'est un attribut du titre,
+  affiché et modifiable (« exploitation » par défaut).
+- **t** : taux effectif moyen, $\sum \text{impôt} / \sum \text{résultat avant impôt}$, sur les exercices du FCF de
+  départ ; ou taux légal saisi à la main. Jamais un taux inventé.
+- **Rémunération en actions** : retranchée par défaut. Elle n'est pas décaissée, donc l'OCF l'ajoute ; mais elle
+  dilue les actionnaires, c'est une charge réelle. Option désactivable dans les réglages ou sur la fiche.
+- **Données manquantes** : intérêts, impôt, rémunération en actions ou un exercice de la moyenne manquant ⇒ calcul
+  **bloqué**, l'exercice et le champ sont nommés. Jamais de zéro par défaut. Remèdes : la saisie manuelle (voie
+  préférée, avec une note de source), ou une approximation acceptée explicitement et mémorisée pour ce titre :
+  - « OCF − capex » sans les intérêts : le FCFF est sous-estimé, donc **le g implicite est surestimé** ;
+  - VE sans minoritaires : la VE est sous-estimée, donc le g implicite est sous-estimé.
+  Chaque approximation acceptée est signalée sur la fiche et dans le récapitulatif.
+
+**FCF de départ.** Moyenne des $n$ derniers FCFF ($n = 3$ par défaut, réglable de 1 à 5), pour lisser une année
+atypique (variation de besoin en fonds de roulement, investissement exceptionnel). Une fenêtre trouée n'est pas moyennée.
+Si $FCF_0 \le 0$, le DCF inversé est refusé : aucune croissance ne transforme un flux négatif en valeur positive.
+
+**Normes comptables et locations.** La norme est un attribut du **titre**, pas de la cotation : ASML, société
+néerlandaise, publie ses comptes principaux en US GAAP ; une ADR américaine peut publier en IFRS. La valeur par défaut
+(US GAAP si la cotation est américaine, IFRS sinon) est marquée « proposée » jusqu'à confirmation, avec un rappel de
+vérification dans le rapport annuel.
+- **IFRS 16** : les loyers sont classés en financement (remboursement de dette locative), l'OCF ne les a pas payés.
+  La dette inclut donc les dettes locatives. Si elles manquent : calcul bloqué, saisie demandée (0 si aucune).
+- **US GAAP (ASC 842)** : les loyers des locations simples sont déjà déduits de l'OCF. La dette **exclut** donc les
+  dettes locatives. Les locations-financement (faibles chez les sociétés détenues) sont exclues elles aussi : limite
+  mineure (Apple : 1,2 Md$ pour une VE d'environ 5 260 Md$).
+
+**Dette financière : construite, pas lue.** La ligne « Total Debt » de Yahoo n'a pas le même périmètre selon la
+société. Elle inclut les dettes locatives pour LVMH et NVIDIA, pas pour Apple (98,7 Md$ = emprunts et billets de
+trésorerie seuls, alors que le 10-K publie 12,5 Md$ de locations simples). On construit donc :
+- dette financière = « Long Term Debt » + « Current Debt » (à défaut : « Current Debt And Capital Lease Obligation »
+  − « Current Capital Lease Obligation ») ;
+- dettes locatives = « Capital Lease Obligations » (à défaut : long terme + courant).
+
+Un terme absent rend le total manquant. Ce défaut a été trouvé par le recoupement ci-dessous.
+
+**Décalage de dates.** Le cours est celui du jour ; dette, trésorerie, minoritaires et actions viennent du dernier
+bilan annuel. Les deux dates sont affichées, et un avertissement le rappelle.
+
+**Équation.** Avec $k$ le coût du capital :
+
+$$V(g) = \sum_{t=1}^{N} \frac{FCF_0 (1+g)^t}{(1+k)^t} + \frac{FCF_0 (1+g)^N (1+g_{term})}{(k - g_{term})(1+k)^N} = VE$$
+
+Si $FCF_0 > 0$, $V$ est strictement croissante en $g$ : la solution est unique. Elle est cherchée par la méthode de
+Brent sur $[-99\ \% ; +200\ \%]$. Erreurs explicites : $k \le g_{term}$ (valeur terminale infinie), $FCF_0 \le 0$,
+$VE \le 0$, pas de solution dans l'intervalle.
+
+**Coût du capital.**
+- **k commun** (par défaut, et toujours dans le récapitulatif pour que les lignes restent comparables) : taux d'État
+  à 10 ans de la devise des comptes + prime de risque actions, avec $\beta = 1$.
+  - EUR : courbe AAA de la zone euro à 10 ans (BCE, `YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_10Y`) ;
+  - USD : Treasury à 10 ans (FRED, `DGS10`) ;
+  - autre devise, ou taux indisponible : k à saisir dans les réglages.
+
+  C'est le coût des fonds propres d'une entreprise moyenne, un peu au-dessus d'un WACC typique (la dette coûte moins
+  cher après impôt). Le g implicite est donc légèrement plus élevé : la lecture est prudente.
+- **Prime de risque : 5 %.** Damodaran publie chaque mois une prime implicite du S&P 500. Au 1er octobre 2026 :
+  4,20 % (méthode principale, flux des 12 derniers mois avec taux de distribution ajusté), dans une fourchette de
+  3,30 % à 5,67 % selon la méthode. 5 % se situe dans cette fourchette, un peu au-dessus de l'estimation principale,
+  et reste un chiffre rond, facile à faire varier dans les réglages.
+- **k MEDAF** (option des réglages, et toujours affiché à côté sur la fiche) :
+  - $k_e = r_f + \beta_{Blume} \times \text{prime}$, avec $\beta_{Blume} = 0{,}67\,\beta + 0{,}33$, $\beta$ de Dimson
+    hebdomadaire sur 5 ans en EUR contre le MSCI World ;
+  - $k_d$ = intérêts / dette moyenne des deux derniers bilans, après impôt ;
+  - pondérations aux valeurs de marché (capitalisation, dette) ;
+  - un élément manquant rend le k MEDAF « manquant » ; le k commun reste disponible.
+
+**Croissance terminale : 2 %.** C'est la cible d'inflation de la BCE et de la Fed, c'est-à-dire une croissance réelle
+nulle à perpétuité. Elle reste sous la croissance nominale de long terme (inflation et croissance réelle, environ
+3 à 4 %) : aucune entreprise ne peut croître durablement plus vite que l'économie. Réglable.
+
+**Horizon : 10 ans.** C'est la convention usuelle pour une période de croissance explicite. Réglable de 1 à 30 ans.
+
+**Lecture.**
+- Croissance historique du FCFF (même définition) et du chiffre d'affaires : taux annuel composé sur les exercices
+  disponibles, avec leur nombre ; « non significatif » si la valeur de départ ou d'arrivée est négative ou nulle ;
+  « manquant » s'il y a moins de deux exercices. C'est un repère sur 3 à 4 ans, pas une prévision sur 10.
+- Sensibilité : $k \pm 1$ et $\pm 2$ points × $g_{term} \in \{1 ; 1{,}5 ; 2 ; 2{,}5 ; 3\ \%\}$. Le g implicite croît
+  avec $k$ et décroît avec $g_{term}$ (testé). Une case impossible affiche sa raison, jamais un nombre.
+
+**Recoupement réel** (données Yahoo lues par l'application le 24/10/2026, contre les publications des sociétés).
+
+*Apple (US GAAP), 10-K de l'exercice clos le 27/09/2025, chiffres XBRL de la SEC (accession 0000320193-25-000079), en Md$ :*
+
+| Poste | 10-K 2025 | Yahoo 2025 | 10-K 2024 | Yahoo 2024 | Écart |
+|---|---|---|---|---|---|
+| Chiffre d'affaires | 416,161 | 416,161 | 391,035 | 391,035 | aucun |
+| OCF | 111,482 | 111,482 | 118,254 | 118,254 | aucun |
+| Capex | 12,715 | 12,715 | 9,447 | 9,447 | aucun |
+| Rémunération en actions | 12,863 | 12,863 | 11,688 | 11,688 | aucun |
+| Résultat avant impôt | 132,729 | 132,729 | 123,485 | 123,485 | aucun |
+| Impôt | 20,719 | 20,719 | 29,749 | 29,749 | aucun |
+| Dette financière (long terme + courant + billets de trésorerie) | 98,657 | 98,657 | 106,629 | 106,629 | aucun |
+| Trésorerie et placements courants | 54,697 | 54,697 | 65,171 | 65,171 | aucun |
+| Actions diluées (moyenne, Md) | 15,005 | 15,005 | 15,408 | 15,408 | arrondi |
+| Charge d'intérêts | non publiée à part | manquante | non publiée à part | manquante | voir ci-dessous |
+| Dettes locatives (locations simples) | 12,490 | manquantes | 11,534 | manquantes | sans effet en US GAAP |
+
+- **Intérêts** : depuis l'exercice 2024, Apple ne publie plus sa charge d'intérêts à part (elle est incluse dans
+  « Other income/(expense), net »). Le blocage est donc juste, et l'approximation OCF − capex est la seule voie sans
+  invention. Avec environ 99 Md$ de dette, l'effet est faible devant un FCFF de 90 Md$.
+- **Placements non courants** : Apple détient 77,7 Md$ de titres négociables à plus d'un an, absents de
+  « trésorerie et placements » chez Yahoo. Les inclure (saisie manuelle de la trésorerie) ramène la VE de 5 262 à
+  5 184 Md$ et le g implicite de 22,8 % à 22,6 %.
+- **Minoritaires** : Apple n'en a pas ; Yahoo ne publie pas la ligne, à saisir 0.
+
+*LVMH (IFRS), communiqué des résultats annuels 2025 du 27/01/2026, en M€ :*
+
+| Poste | LVMH | Yahoo | Écart |
+|---|---|---|---|
+| Ventes 2025 | 80 807 | 80 807 | aucun |
+| Ventes 2024 | 84 683 | 84 682 | arrondi |
+| Dette financière nette 2025 (dette financière − trésorerie et placements) | 6 857 | 20 344 − 13 502 = 6 842 | 15 (0,2 %) |
+| Dette financière nette 2024 | 9 228 | 22 941 − 13 587 = 9 354 | 126 (1,4 %) |
+| Cash-flow disponible d'exploitation 2025 | 11 333 | OCF − capex = 14 205 | 2 872 |
+
+- La dette financière nette de LVMH exclut les dettes locatives (16,4 Md€ à fin 2025), comme notre champ
+  `financial_debt`. Les petits écarts viennent probablement des instruments dérivés de couverture, que LVMH intègre
+  à sa dette nette. Le « Total Debt » de Yahoo (36,7 Md€) inclut au contraire les locations.
+- Le « cash-flow disponible d'exploitation » de LVMH retranche aussi les remboursements de dettes locatives
+  (environ 2,9 Md€, l'écart observé). En IFRS, notre FCFF ne les retranche pas, parce que la VE inclut les dettes
+  locatives : les deux conventions sont cohérentes, il ne faut pas les croiser.
+- La rémunération en actions de LVMH est absente chez Yahoo : la fiche bloque jusqu'à une saisie (montant du
+  document d'enregistrement universel) ou la désactivation de l'option.
+
+*g recalculé indépendamment* (script séparé : formules écrites à la main, bissection au lieu de Brent), mêmes données
+et mêmes taux (FRED 4,96 % et BCE 3,38 % au 22/10/2026, prime 5 %, N = 10, $g_{term}$ = 2 %) :
+
+| Titre | Hypothèses | FCF₀ | VE | g indépendant | g application |
+|---|---|---|---|---|---|
+| AAPL | US GAAP, OCF − capex, rémunération en actions retranchée, k = 9,96 % | 90,59 Md$ | 5 261,5 Md$ | 22,8289 % | 22,8289 % |
+| MC.PA | IFRS, intérêts en exploitation, sans rémunération en actions, k = 8,38 % | 13,51 Md€ | 217,8 Md€ | 2,1213 % | 2,1213 % |
+
+Écart entre les deux calculs : moins de $10^{-15}$.
+
 ### Limites
 
 - Toutes ces mesures sont des **estimations sur le passé**. Pour des rendements i.i.d., l'erreur-type du Sharpe estimé sur $n$ périodes vaut $\sqrt{(1 + S_p^2/2)/n}$, avec $S_p$ le Sharpe par période (Lo, 2002). En données quotidiennes, $S_p$ est petit et l'erreur-type du Sharpe annualisé se réduit à environ $1/\sqrt{T}$, avec $T$ la durée en années. Sur 5 ans : environ 0,45. Un Sharpe estimé de 0,8 a donc un intervalle de confiance à 95 % d'environ $0{,}8 \pm 1{,}96 \times 0{,}45$, soit $[-0{,}1\ ;\ 1{,}7]$.
 - La VaR historique ne prévoit pas les crises absentes de l'échantillon.
 - Les données Yahoo Finance sont gratuites et non garanties : erreurs ponctuelles possibles.
+- Le DCF inversé dépend entièrement de $k$ et de $g_{term}$ (voir la sensibilité) : c'est une lecture du prix, pas une estimation de valeur.
 
 ### Sources
 
@@ -272,3 +436,8 @@ identiques à un calcul indépendant à 4·10⁻⁵ près (arrondi), volatilité
 - Lo, A. W. (2002). *The Statistics of Sharpe Ratios*. Financial Analysts Journal.
 - Meucci, A. (2009). *Managing Diversification*. Risk.
 - Meucci, A., Santangelo, A., Deguest, R. (2015). *Risk Budgeting and Diversification Based on Optimized Uncorrelated Factors*. Risk.
+
+- Damodaran, A. *Implied Equity Risk Premium*, mise à jour du 1er octobre 2026, pages.stern.nyu.edu/~adamodar (consulté le 24/10/2026).
+- Blume, M. E. (1971). *On the Assessment of Risk*. Journal of Finance.
+- Apple Inc., formulaire 10-K de l'exercice 2025, données XBRL de la SEC (data.sec.gov, CIK 0000320193).
+- LVMH, communiqué des résultats annuels 2025, 27 janvier 2026 (lvmh.com).

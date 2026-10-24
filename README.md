@@ -3,14 +3,19 @@
 Application web d'analyse de portefeuille personnel, construite à partir des **transactions réelles** :
 positions, prix de revient, plus-values, performance mesurée de deux façons (TWR et TRI), et comparaison au
 Nasdaq 100 et au MSCI World en euros, avec la marge d'erreur de chaque ratio, et mesure de la diversification
-réelle (contributions au risque, nombre effectif de paris, simulateur).
+réelle (contributions au risque, nombre effectif de paris, simulateur), et lecture du prix de chaque action par un
+DCF inversé (croissance que le prix suppose).
 Devise de référence : l'euro. Plusieurs comptes (compte-titres, PEA, crypto), actifs cotés en EUR ou en USD.
 
 L'application **lit et analyse, elle n'agit pas** : aucune exécution d'ordre, aucune connexion à un courtier,
 aucun identifiant stocké.
 
-| Diversification | Risque et comparaison |
+| Valorisation : récapitulatif | Fiche d'une action (DCF inversé) |
 |---|---|
+| ![Valorisation](docs/captures/valorisation.png) | ![Fiche](docs/captures/fiche-valorisation.png) |
+| **Fiche bloquée par une donnée manquante (thème clair)** | **Valorisation sur mobile** |
+| ![Fiche bloquée](docs/captures/fiche-valorisation-clair.png) | ![Mobile](docs/captures/valorisation-mobile.png) |
+| **Diversification** | **Risque et comparaison** |
 | ![Diversification](docs/captures/diversification.png) | ![Risque](docs/captures/risque.png) |
 | **Diversification (thème clair)** | **Performance par période (thème clair)** |
 | ![Diversification](docs/captures/diversification-clair.png) | ![Performance](docs/captures/performance-clair.png) |
@@ -32,7 +37,7 @@ trajectoire choisie pour flatter le portefeuille.*
 | 1 | Comptes, transactions, import CSV, positions, PRU, plus-values, TWR, TRI, tableau de bord | **terminée** |
 | 2 | Indicateurs de risque sur le TWR réel, comparaison au Nasdaq 100 et au MSCI World en EUR, intervalles de confiance, périodes | **terminée** |
 | 3 | Corrélations, contributions au risque, ENB (ACP et torsion minimale), Ledoit-Wolf, simulateur | **terminée** |
-| 4 | Fiche par action, DCF inversé | à venir |
+| 4 | Fiche par action, DCF inversé (FCFF / VE), k commun et MEDAF, sensibilité, saisie manuelle des comptes | **terminée** |
 
 ## Installation
 
@@ -69,7 +74,7 @@ La base SQLite est conservée dans le volume `mt-data`.
 ### Tests
 
 ```powershell
-.venv\Scripts\python -m pytest --cov      # 234 tests ; couverture du module de calcul : 98 %
+.venv\Scripts\python -m pytest --cov      # 289 tests ; couverture du module de calcul : 98 %
 cd frontend; npx tsc -p .                # vérification des types
 ```
 
@@ -112,19 +117,21 @@ mini_terminal/
 │   ├── splits.py             Ajustement des transactions pour les divisions d'actions
 │   ├── covariance.py         Covariance par paires, matrice la plus proche (Higham), Ledoit-Wolf
 │   ├── diversification.py    Poids réels, contributions, ENB, premier facteur, simulateur
+│   ├── dcf.py                DCF inversé : périmètre, FCFF, VE, g implicite, sensibilité, k commun et MEDAF
 │   ├── marketdata/
 │   │   ├── base.py           Interface MarketDataProvider et erreurs typées
 │   │   ├── yahoo.py          Implémentation yfinance (seul fichier qui l'importe)
 │   │   ├── simulated.py      Implémentation simulée (tests, démo)
-│   │   ├── rates.py          Interface des taux au jour le jour, version simulée
-│   │   └── ecb.py            €STR et EONIA de la BCE (seul fichier qui appelle la BCE)
+│   │   ├── rates.py          Interface des taux (jour le jour, 10 ans), version simulée
+│   │   ├── ecb.py            €STR, EONIA et taux AAA à 10 ans de la BCE (seul fichier qui appelle la BCE)
+│   │   └── fred.py           Treasury à 10 ans (FRED)
 │   └── data.py, engine.py, charts.py, views.py   utilisés par legacy/
 ├── backend/app/              FastAPI + SQLAlchemy 2 + SQLite
 │   ├── models.py, db.py      Tables ; type DecimalText (Decimal exact dans SQLite)
 │   ├── market.py             Cache en base des cours, dividendes, divisions et taux
 │   ├── settings_store.py     Réglages d'analyse, stockés en base
-│   ├── services/             portfolio.py (base -> cœur -> réponses), csv_import.py, ledger_check.py
-│   └── routers/              accounts, listings, transactions, portfolio, analysis (risque, diversification, réglages)
+│   ├── services/             portfolio.py (base -> cœur -> réponses), valuation.py, csv_import.py, ledger_check.py
+│   └── routers/              accounts, listings, transactions, portfolio, analysis (risque, diversification, réglages), valuation
 ├── frontend/                 React + TypeScript + Vite + Tailwind ; Lightweight Charts, ECharts
 ├── tests/, backend/tests/    Tests du cœur et de l'API
 ├── docs/                     Format CSV, captures
@@ -193,6 +200,20 @@ Méthode de calcul détaillée : [`METHODE.md`](METHODE.md).
   - la démo suit un modèle à deux facteurs (marché mondial et technologie). Ses ETF cotés en euros n'ont pas
     d'exposition au dollar : la corrélation entre QQQ converti en EUR et l'ETF Nasdaq du PEA est de 0,91, contre
     environ 0,99 en réalité.
+- **Valorisation (DCF inversé)** :
+  - c'est une lecture du prix sous hypothèses, pas une valeur juste ni un conseil ; le résultat dépend fortement du
+    coût du capital et de la croissance terminale (tableau de sensibilité) ;
+  - comptes annuels Yahoo : 4 à 5 exercices, des postes parfois absents (charge d'intérêts d'Apple depuis 2024,
+    rémunération en actions de LVMH). Le calcul est alors bloqué jusqu'à une saisie manuelle ou une approximation
+    acceptée et signalée ;
+  - la norme comptable et le classement des intérêts sont proposés d'après la cotation : à vérifier dans le rapport
+    annuel ;
+  - « trésorerie et placements » ne compte que les placements courants (Apple : 77,7 Md$ de titres à plus d'un an
+    exclus ; à saisir à la main pour les inclure) ;
+  - en US GAAP, les locations-financement sont exclues de la dette avec les locations simples (effet mineur) ;
+  - les banques et assurances sont exclues : il faudrait une valorisation par les fonds propres ;
+  - **amélioration future** : lire les comptes américains directement dans SEC EDGAR (XBRL, gratuit et officiel)
+    au lieu de Yahoo. Le recoupement d'Apple l'a utilisé à la main (METHODE.md).
 - **Bases d'annualisation** : rendement annualisé en jours calendaires (365), volatilité et ratios en séances (252)
   ou en semaines (52), selon la convention de chaque mesure.
 - **Petits écarts d'arrondi** entre la courbe de valeur (flottants) et les totaux (`Decimal`) : au plus

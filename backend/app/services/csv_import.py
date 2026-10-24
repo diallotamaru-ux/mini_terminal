@@ -42,6 +42,9 @@ def _norm(s: str) -> str:
     return "".join(c for c in s if not unicodedata.combining(c)).replace(" ", "_")
 
 
+_DOT_THOUSANDS = re.compile(r"-?[1-9]\d{0,2}(\.\d{3})+")
+
+
 def parse_decimal(raw: str | None) -> Decimal | None:
     """« 1 234,56 », « 1234.56 », « 1.234,56 » -> Decimal('1234.56'). Vide -> None."""
     if raw is None:
@@ -49,6 +52,10 @@ def parse_decimal(raw: str | None) -> Decimal | None:
     s = raw.strip().replace(" ", "").replace(" ", "").replace(" ", "").replace("€", "")
     if not s:
         return None
+    if _DOT_THOUSANDS.fullmatch(s):
+        # « 1.500 » : 1 500 (milliers à la française) ou 1,5 ? Ambigu : on refuse plutôt que de diviser par 1 000.
+        raise ValueError(f"nombre ambigu « {raw} » : écrivez 1500 (sans séparateur de milliers) ou 1,5 (virgule "
+                         f"décimale)")
     if "," in s and "." in s:
         # Le dernier séparateur est le séparateur décimal, l'autre groupe les milliers.
         if s.rfind(",") > s.rfind("."):

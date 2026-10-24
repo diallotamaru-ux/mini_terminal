@@ -65,7 +65,7 @@ cd frontend && npm run dev
 ### Avec Docker
 
 ```bash
-docker compose up --build              # http://localhost:8080
+docker compose up --build              # http://localhost:8080 (écoute sur 127.0.0.1 seulement)
 MT_DEMO=1 docker compose up --build    # mode démo
 ```
 

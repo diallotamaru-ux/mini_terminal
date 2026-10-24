@@ -75,8 +75,8 @@ export default function AllocationBars({ items }: { items: AllocationItem[] }) {
         <p className="text-sm text-muted">Aucune valeur connue.</p>}
       {missing.length > 0 && (
         <p className="mt-2 text-xs text-warn">
-          Valeur {MISSING} : {missing.map((m) => m.label).join(", ")}. Les poids des autres lignes sont calculés
-          sans elles.
+          Valeur {MISSING} : {missing.map((m) => m.label).join(", ")}. Le total est inconnu, donc aucun poids
+          n'est calculé ; les barres montrent les valeurs connues, en euros.
         </p>
       )}
       <details className="mt-2 text-xs text-muted">

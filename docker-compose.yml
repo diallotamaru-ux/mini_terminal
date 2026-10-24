@@ -15,7 +15,7 @@ services:
   web:
     build: ./frontend
     ports:
-      - "8080:80"
+      - "127.0.0.1:8080:80"      # local seulement : l'API n'a pas d'authentification
     depends_on:
       - api
     restart: unless-stopped

@@ -12,3 +12,5 @@ htmlcov/
 data/
 *.db-wal
 *.db-shm
+.env
+.env.*

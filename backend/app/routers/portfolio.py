@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 
-from fastapi import APIRouter, Depends, File, Query, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from .. import schemas
@@ -41,10 +41,15 @@ def performance(period: schemas.Period = "origine", as_of: dt.date | None = None
     return svc.performance_out(st.snapshot(s, as_of), period)
 
 
+MAX_CSV_BYTES = 5_000_000            # comme nginx (Docker) ; un relevé réel fait quelques dizaines de ko
+
+
 @router.post("/imports/csv", response_model=schemas.ImportReport)
 async def import_transactions(file: UploadFile = File(...), dry_run: bool = Query(True),
                               s: Session = Depends(get_session), st: AppState = Depends(get_state)):
-    content = await file.read()
+    content = await file.read(MAX_CSV_BYTES + 1)
+    if len(content) > MAX_CSV_BYTES:
+        raise HTTPException(413, f"Fichier trop volumineux (plus de {MAX_CSV_BYTES // 1_000_000} Mo).")
     report = import_csv(s, st.provider, content, dry_run=dry_run)
     if report.committed:
         st.touch()

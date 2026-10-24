@@ -9,6 +9,8 @@ Un fichier par import, une ligne par opération. Exemple complet : [`examples/tr
 - **Dates** : `AAAA-MM-JJ` ou `JJ/MM/AAAA`.
 - **Nombres** : la virgule décimale française est acceptée. `1 234,56`, `1234,56`, `1.234,56` et
   `1,234.56` valent tous 1234,56 : quand les deux séparateurs apparaissent, le dernier est le décimal.
+  Un point seul suivi de groupes de trois chiffres (`1.500`, `12.345.678`) est **refusé** : milliers à la
+  française ou décimale à l'anglaise, il est ambigu. Écrivez `1500` ou `1,5`.
   Le symbole `€` et les espaces insécables sont ignorés. Aucune valeur n'est arrondie.
 - **En-tête** obligatoire, dans n'importe quel ordre. Les accents et la casse des noms de colonnes sont ignorés
   (`Quantité` = `quantite`). Une colonne inconnue est refusée, pour qu'une faute de frappe ne fasse pas

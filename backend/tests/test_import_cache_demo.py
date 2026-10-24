@@ -38,12 +38,15 @@ def upload(client, content: str | bytes, dry_run: bool = True):
 @pytest.mark.parametrize("raw,expected", [
     ("1 234,56", "1234.56"), ("1.234,56", "1234.56"), ("1,234.56", "1234.56"), ("0,00235", "0.00235"),
     ("12", "12"), (" 1 000,5 €", "1000.5"), ("", None), (None, None),
+    ("0.915", "0.915"), ("1.5", "1.5"), ("185.50", "185.50"), ("1,500", "1.5"),
 ])
 def test_parse_decimal(raw, expected):
     assert parse_decimal(raw) == (None if expected is None else Decimal(expected))
 
 
-@pytest.mark.parametrize("raw", ["abc", "1,2,3", "NaN"])
+# « 1.500 » : milliers à la française ou décimale à l'anglaise ? Revue : lu 1,5, soit un dépôt divisé par 1 000
+# sans message. Refusé.
+@pytest.mark.parametrize("raw", ["abc", "1,2,3", "NaN", "1.500", "12.345.678", "-2.000"])
 def test_parse_decimal_rejects(raw):
     with pytest.raises(ValueError):
         parse_decimal(raw)
@@ -319,3 +322,13 @@ def test_rate_cache_and_outage():
     assert "fournisseur indisponible" in s.source
     with pytest.raises(ProviderUnavailable):
         c.overnight("eonia", dt.date(2018, 1, 1), dt.date(2018, 2, 1))          # aucun cache
+
+
+def test_csv_upload_size_is_capped(client):
+    """Revue : aucune taille maximale côté API (seul nginx limitait, sous Docker)."""
+    from backend.app.routers.portfolio import MAX_CSV_BYTES
+
+    big = b"date;compte;type" + b"x" * (MAX_CSV_BYTES + 10)
+    r = client.post("/api/imports/csv", files={"file": ("gros.csv", big, "text/csv")})
+    assert r.status_code == 413 and "trop volumineux" in r.json()["detail"]
+

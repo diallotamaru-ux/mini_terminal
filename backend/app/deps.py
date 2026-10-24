@@ -67,6 +67,26 @@ class AppState:
             self._risk_memo = {**self._risk_memo, key: out} if len(self._risk_memo) < 20 else {key: out}
         return out
 
+    def valuation(self, s: Session, ticker: str | None):
+        """Page Valorisation : tableau récapitulatif (ticker None) ou fiche, même cache."""
+        from . import settings_store
+        from .services import valuation as sv
+
+        snap = self.snapshot(s)
+        key = ("val", ticker, self.revision, snap.as_of, int(time.time() // SNAPSHOT_TTL_SECONDS))
+        with self._lock:
+            hit = self._risk_memo.get(key)
+        if hit is not None:
+            return hit
+        settings = settings_store.load(s)
+        if ticker is None:
+            out = sv.summary_out(s, snap, self.provider, self.rates, settings)
+        else:
+            out = sv.analyze(s, snap, self.provider, self.rates, settings, sv.find_title(s, snap, ticker))
+        with self._lock:
+            self._risk_memo = {**self._risk_memo, key: out} if len(self._risk_memo) < 20 else {key: out}
+        return out
+
     def snapshot(self, s: Session, as_of: dt.date | None = None) -> Snapshot:
         """Un calcul complet par révision du grand livre, date et tranche de 5 minutes."""
         as_of = as_of or dt.date.today()

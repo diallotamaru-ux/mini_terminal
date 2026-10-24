@@ -26,7 +26,7 @@ from .config import Settings, get_settings
 from .db import Database
 from .deps import AppState
 from .market import CachedProvider, CachedRates
-from .routers import accounts, analysis, listings, portfolio, transactions
+from .routers import accounts, analysis, listings, portfolio, transactions, valuation
 from .services.csv_import import CsvFormatError
 
 log = logging.getLogger("mini_terminal")
@@ -61,7 +61,8 @@ def create_app(settings: Settings | None = None, provider: MarketDataProvider | 
     app.state.mt = state
     app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins, allow_methods=["*"],
                        allow_headers=["*"])
-    for r in (accounts.router, listings.router, transactions.router, portfolio.router, analysis.router):
+    for r in (accounts.router, listings.router, transactions.router, portfolio.router, analysis.router,
+              valuation.router):
         app.include_router(r)
 
     @app.exception_handler(LedgerError)

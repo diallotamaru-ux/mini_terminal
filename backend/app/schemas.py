@@ -523,3 +523,176 @@ class SimulationOut(BaseModel):
     estimator_label: str
     notes: list[str]
     disclaimer: str
+
+
+# ---------------------------------------------------------------------------
+# Valorisation (DCF inversé)
+# ---------------------------------------------------------------------------
+
+FundamentalField = Literal["revenue", "ocf", "capex", "fcf_reported", "sbc", "interest_expense", "pretax_income",
+                           "tax_provision", "total_debt", "lease_liabilities", "cash_sti", "minority_interest",
+                           "diluted_shares"]
+
+
+class FundamentalCell(BaseModel):
+    value: Decimal | None                    # None = manquant
+    manual: bool = False
+    note: str | None = None
+    entered_at: dt.datetime | None = None
+
+
+class FundamentalYear(BaseModel):
+    fiscal_end: dt.date
+    values: dict[str, FundamentalCell]
+    fcff: float | None                       # FCFF de l'exercice selon les hypothèses (None = non calculable)
+
+
+class MissingOut(BaseModel):
+    fiscal_end: dt.date | None
+    field: str
+    label: str
+    remedy: str
+
+
+class KOut(BaseModel):
+    k: float | None
+    label: str                               # « commun EUR », « MEDAF », « personnalisé »
+    detail: str                              # composantes, sources et dates
+    g: float | None = None                   # g implicite avec ce k
+    error: str | None = None
+
+
+class ProfileOut(BaseModel):
+    standard: str
+    standard_label: str
+    standard_proposed: bool                  # valeur par défaut non confirmée
+    interest_class: str
+    financial: bool | None
+    k: float | None
+    horizon: int
+    g_term: float
+    fcf_years: int
+    sbc_deduct: bool
+    statutory_tax: float | None
+    accept_interest_approx: bool
+    accept_minority_approx: bool
+    custom: list[str]                        # hypothèses différentes des réglages
+
+
+class EvOut(BaseModel):
+    price: float
+    price_date: dt.date | None
+    price_currency: str
+    fx: float
+    accounts_currency: str
+    shares: float
+    market_cap: float
+    debt: float
+    debt_rule: str
+    cash: float
+    minority: float | None
+    ev: float
+    balance_date: dt.date
+
+
+class GrowthOut(BaseModel):
+    value: float | None
+    status: str                              # ok, non_significatif, manquant
+    years: int
+    n_points: int
+    start: dt.date | None
+    end: dt.date | None
+
+
+class SensiCell(BaseModel):
+    k: float
+    g_term: float
+    g: float | None
+    reason: str | None
+
+
+class PricePoint(BaseModel):
+    time: dt.date
+    value: float
+
+
+class ValuationOut(BaseModel):
+    meta: Meta
+    ticker: str
+    name: str
+    isin: str | None
+    asset_class: str
+    status: str                              # ok, exclue, bloquee, impossible
+    reason: str | None                       # exclusion, blocage ou impossibilité
+    missing: list[MissingOut]
+    sector: str | None
+    industry: str | None
+    fundamentals_source: str | None
+    fundamentals_fetched_at: dt.datetime | None
+    fundamentals_simulated: bool
+    accounts_currency: str | None
+    years: list[FundamentalYear]
+    profile: ProfileOut | None
+    fcff_rule: str | None
+    fcff0: float | None
+    fcf_window: list[dt.date]
+    tax_rate: float | None
+    tax_source: str | None
+    ev: EvOut | None
+    k_used: KOut | None
+    k_common: KOut | None
+    k_capm: KOut | None
+    g: float | None
+    sentence: str | None
+    growth_fcff: GrowthOut | None
+    growth_revenue: GrowthOut | None
+    sensitivity: list[list[SensiCell]]
+    prices: list[PricePoint]
+    warnings: list[str]
+
+
+class ValuationRow(BaseModel):
+    ticker: str
+    name: str
+    status: str
+    reason: str | None
+    g: float | None
+    k: float | None
+    k_label: str | None
+    growth_fcff: GrowthOut | None
+    growth_revenue: GrowthOut | None
+    ev_multiple: float | None                # VE / FCFF de départ
+    balance_date: dt.date | None
+    price_date: dt.date | None
+    manual: bool                             # au moins une saisie manuelle
+    approximations: bool                     # au moins une approximation acceptée
+
+
+class ValuationSummaryOut(BaseModel):
+    meta: Meta
+    horizon: int
+    g_term: float
+    rows: list[ValuationRow]                 # analysables, triées par g implicite
+    others: list[ValuationRow]               # bloquées, impossibles, exclues
+
+
+class ProfileIn(BaseModel):
+    """Hypothèses et attributs comptables d'un titre. null = valeur par défaut."""
+    standard: Literal["us_gaap", "ifrs"] | None = None
+    interest_class: Literal["exploitation", "financement"] | None = None
+    financial: bool | None = None
+    k: Decimal | None = Field(default=None, gt=Decimal("-0.5"), le=Decimal("0.5"))
+    horizon: int | None = Field(default=None, ge=1, le=30)
+    g_term: Decimal | None = Field(default=None, ge=Decimal("-0.05"), le=Decimal("0.06"))
+    fcf_years: int | None = Field(default=None, ge=1, le=5)
+    sbc_deduct: bool | None = None
+    statutory_tax: Decimal | None = Field(default=None, ge=0, le=Decimal("0.6"))
+    accept_interest_approx: bool = False
+    accept_minority_approx: bool = False
+
+
+class FundamentalIn(BaseModel):
+    fiscal_end: dt.date
+    field: FundamentalField
+    value: Decimal
+    note: str | None = Field(default=None, max_length=300)

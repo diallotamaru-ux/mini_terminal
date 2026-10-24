@@ -8,6 +8,7 @@ Trois comptes, les deux conventions de flux, de l'USD et de la crypto :
 Le CTO détient aussi NVDA, divisée par 10 le 10/06/2024 (division simulée) : les
 achats antérieurs sont saisis en prix d'origine, comme sur un relevé de courtier,
 et l'application les ajuste au calcul.
+Valorisation : norme d'ASML confirmée, rémunération en actions de LVMH saisie à la main.
 """
 
 from __future__ import annotations
@@ -121,5 +122,14 @@ def seed(s: Session, provider: MarketDataProvider, today: dt.date | None = None)
     if sell <= today:
         day, p = px("ASML.AS", sell)
         add(cto, "VENTE", sell, listings["ASML.AS"], quantity=Decimal("2.0000"), price=p, fees=Decimal(1))
+    # Valorisation : ASML publie ses comptes principaux en US GAAP (norme confirmée), et la
+    # rémunération en actions de LVMH, absente chez le fournisseur, est saisie à la main
+    # (montants FICTIFS). AAPL reste bloquée (charge d'intérêts manquante) pour montrer le parcours.
+    s.add(models.ValuationProfile(instrument_id=listings["ASML.AS"].instrument_id, standard="us_gaap",
+                                  interest_class="exploitation"))
+    for year, amount in ((2023, "95000000"), (2024, "110000000"), (2025, "120000000")):
+        s.add(models.FundamentalOverride(instrument_id=listings["MC.PA"].instrument_id,
+                                         fiscal_end=dt.date(year, 12, 31), field="sbc", value=Decimal(amount),
+                                         note="Saisie de démonstration (montant fictif)"))
     s.commit()
     return True

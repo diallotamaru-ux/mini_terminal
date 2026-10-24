@@ -9,6 +9,8 @@ Cache des cours en base, placé devant n'importe quel MarketDataProvider.
 - Un changement de fournisseur invalide le cache du symbole.
 - Les divisions d'actions sont mises en cache de la même façon, retéléchargées
   après `ttl` (une division peut être annoncée à tout moment).
+- Les comptes annuels sont gardés `fundamentals_ttl` (7 jours par défaut) : ils ne
+  changent qu'à la publication d'un exercice. Valeurs en Decimal ; absente = manquante.
 """
 
 from __future__ import annotations
@@ -22,11 +24,12 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from terminal.errors import ProviderUnavailable
-from terminal.marketdata.base import Fundamentals, InstrumentInfo, MarketDataProvider, PriceSeries
+from terminal.marketdata.base import (FUNDAMENTAL_FIELDS, Fundamentals, InstrumentInfo, MarketDataProvider,
+                                      PriceSeries, fundamentals_frame)
 from terminal.marketdata.rates import RateProvider
 from terminal.splits import Split
 
-from .models import MarketBar, MarketRange, MarketSplit
+from .models import FundamentalCache, FundamentalValue, MarketBar, MarketRange, MarketSplit
 
 
 def _utc(dt: datetime) -> datetime:
@@ -97,6 +100,8 @@ class _SeriesCache:
 
 
 class CachedProvider(_SeriesCache, MarketDataProvider):
+    fundamentals_ttl = timedelta(days=7)
+
     def daily_closes(self, ticker: str, start: date, end: date) -> PriceSeries:
         return self._get(ticker, ticker, start, end,
                          lambda s, e: self.inner.daily_closes(ticker, s, e))
@@ -116,7 +121,39 @@ class CachedProvider(_SeriesCache, MarketDataProvider):
                          lambda s, e: self.inner.dividends(ticker, s, e))
 
     def fundamentals(self, ticker: str) -> Fundamentals:
-        return self.inner.fundamentals(ticker)
+        with self.sessions() as s:
+            head = s.get(FundamentalCache, ticker)
+            same = head is not None and head.provider == self.inner.name
+            if same and self.now() - _utc(head.fetched_at) < self.fundamentals_ttl:
+                return self._read_fundamentals(s, head)
+            try:
+                f = self.inner.fundamentals(ticker)
+            except ProviderUnavailable:
+                if same:
+                    note = f" (cache du {_utc(head.fetched_at).date().isoformat()}, fournisseur indisponible)"
+                    return self._read_fundamentals(s, head, note)
+                raise
+            s.execute(delete(FundamentalValue).where(FundamentalValue.ticker == ticker))
+            s.add_all(FundamentalValue(ticker=ticker, fiscal_end=pd.Timestamp(d).date(), field=col,
+                                       value=Decimal(repr(float(v))))
+                      for d, row in f.table.iterrows() for col, v in row.items() if pd.notna(v))
+            if head is None:
+                head = FundamentalCache(ticker=ticker)
+                s.add(head)
+            head.provider, head.source, head.simulated = self.inner.name, f.source, f.simulated
+            head.fetched_at = self.now()
+            head.currency, head.quote_type, head.sector, head.industry = f.currency, f.quote_type, f.sector, f.industry
+            s.commit()
+            return self._read_fundamentals(s, head)
+
+    def _read_fundamentals(self, s: Session, head: FundamentalCache, note: str = "") -> Fundamentals:
+        rows = s.scalars(select(FundamentalValue).where(FundamentalValue.ticker == head.ticker)).all()
+        by_field: dict[str, dict] = {f: {} for f in FUNDAMENTAL_FIELDS}
+        for r in rows:
+            by_field.setdefault(r.field, {})[pd.Timestamp(r.fiscal_end)] = float(r.value)
+        table = fundamentals_frame({f: pd.Series(v, dtype=float) for f, v in by_field.items() if v})
+        return Fundamentals(head.ticker, head.currency, head.quote_type, head.sector, head.industry, table,
+                            head.source + note, simulated=head.simulated, fetched_at=_utc(head.fetched_at))
 
     def splits(self, ticker: str) -> list[Split]:
         symbol = f"SPLITS:{ticker}"

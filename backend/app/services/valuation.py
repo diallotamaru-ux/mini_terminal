@@ -279,7 +279,7 @@ def analyze(s: Session, snap: Snapshot, provider: MarketDataProvider, rates: Rat
     out = dict(ticker=t.ticker, name=t.name, isin=t.isin, asset_class=t.asset_class, status="ok", reason=None,
                missing=[], sector=None, industry=None, fundamentals_source=None, fundamentals_fetched_at=None,
                fundamentals_simulated=False, accounts_currency=None, years=[], profile=None, fcff_rule=None,
-               fcff0=None, fcf_window=[], tax_rate=None, tax_source=None, ev=None, k_used=None, k_common=None,
+               fcff0=None, ev_multiple=None, fcf_window=[], tax_rate=None, tax_source=None, ev=None, k_used=None, k_common=None,
                k_capm=None, g=None, sentence=None, growth_fcff=None, growth_revenue=None, sensitivity=[],
                prices=[], warnings=warnings)
 
@@ -377,6 +377,7 @@ def analyze(s: Session, snap: Snapshot, provider: MarketDataProvider, rates: Rat
                    growth_fcff=_growth(dcf.historical_growth(fr.table["fcff"])))
     if ev is not None:
         warnings.extend(ev.warnings)
+        out["ev_multiple"] = _r(ev.ev / fr.fcff0, 4) if fr is not None and fr.fcff0 else None
         out["ev"] = schemas.EvOut(price=ev.price, price_date=price_date, price_currency=t.quote_currency, fx=_r(ev.fx, 8),
                                   accounts_currency=cur, shares=ev.shares, market_cap=_r(ev.market_cap, 0),
                                   debt=ev.debt, debt_rule=ev.debt_rule, cash=ev.cash, lt_investments=ev.lt_investments,

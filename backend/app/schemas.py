@@ -636,6 +636,7 @@ class ValuationOut(BaseModel):
     profile: ProfileOut | None
     fcff_rule: str | None
     fcff0: float | None
+    ev_multiple: float | None                  # VE / FCFF0 observé (contrôle de vraisemblance du g)
     fcf_window: list[dt.date]
     tax_rate: float | None
     tax_source: str | None

@@ -31,7 +31,7 @@ const pctOut = (s: string) => (s.trim() === "" ? null : String(Number(s.replace(
 
 // ---------------------------------------------------------------------------
 
-function KBox({ k, n, used }: { k: KOut | null; n: number; used: boolean }) {
+function KBox({ k, n, used, multiple }: { k: KOut | null; n: number; used: boolean; multiple: number | null }) {
   if (!k) return null;
   return (
     <div className={`rounded-md border p-3 ${used ? "border-accent" : "border-line"}`}>
@@ -42,6 +42,9 @@ function KBox({ k, n, used }: { k: KOut | null; n: number; used: boolean }) {
         <>
           <div className="num mt-1 text-xl font-semibold">{k.g === null ? "—" : pct(k.g, 1)}
             <span className="ml-2 text-sm font-normal text-ink-2">par an pendant {n} ans, k = {pct(k.k, 2)}</span></div>
+          {k.g !== null && multiple !== null && (
+            <div className="num mt-1 text-sm text-ink-2">pour un multiple VE / FCF de départ de <strong className="text-ink">{dec(multiple, 1)}</strong></div>
+          )}
           {k.error && <div className="mt-1 text-xs text-warn">{k.error}</div>}
           <div className="mt-1 text-xs text-ink-2">{k.detail}</div>
         </>
@@ -57,9 +60,9 @@ function ResultCard({ v }: { v: Valuation }) {
     <Card title="Ce que suppose le prix actuel">
       <p className="text-base text-ink">{v.sentence}</p>
       <div className={`mt-3 grid gap-3 ${extra ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
-        {extra && <KBox k={v.k_used} n={p.horizon} used />}
-        <KBox k={v.k_common} n={p.horizon} used={v.k_used?.label === v.k_common?.label} />
-        <KBox k={v.k_capm} n={p.horizon} used={v.k_used?.label === "MEDAF"} />
+        {extra && <KBox k={v.k_used} n={p.horizon} used multiple={v.ev_multiple} />}
+        <KBox k={v.k_common} n={p.horizon} used={v.k_used?.label === v.k_common?.label} multiple={v.ev_multiple} />
+        <KBox k={v.k_capm} n={p.horizon} used={v.k_used?.label === "MEDAF"} multiple={v.ev_multiple} />
       </div>
       <div className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
         <div><div className="text-xs text-muted">FCF de départ (moyenne {v.fcf_window.length} ex.)</div>
@@ -69,7 +72,8 @@ function ResultCard({ v }: { v: Valuation }) {
         <div><div className="text-xs text-muted">Croissance historique du chiffre d'affaires</div>
           <div className="num font-semibold">{growth(v.growth_revenue)}</div></div>
         <div><div className="text-xs text-muted">VE / FCF de départ</div>
-          <div className="num font-semibold">{v.ev && v.fcff0 ? dec(v.ev.ev / v.fcff0, 1) : "manquant"}</div></div>
+          <div className="num font-semibold">{v.ev_multiple === null ? "manquant" : dec(v.ev_multiple, 1)}</div>
+          <div className="text-[11px] text-muted">soit un rendement du flux de {v.ev_multiple ? pct(1 / v.ev_multiple, 1) : "—"}</div></div>
       </div>
       <p className="mt-3 text-xs text-ink-2">
         La croissance historique porte sur les exercices disponibles (nombre d'années entre parenthèses), pas sur les {p.horizon} ans

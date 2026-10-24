@@ -307,3 +307,17 @@ def test_long_term_investments_subtracted_like_cash():
     assert zero.lt_investments == 0.0 and zero.ev == base.ev                   # 0 saisi : sans avertissement
     assert not any("non courants" in w for w in zero.warnings)
 
+
+@pytest.mark.parametrize("g", [-0.05, 0.0, 0.03, 0.07, 0.15, 0.25])
+def test_multiple_and_implied_growth_are_reciprocal(g):
+    """Cohérence multiple / g : le multiple qu'un g suppose redonne ce g, et le multiple croît avec g."""
+    m = dcf.implied_multiple(g, 0.09, 10, 0.02)
+    assert dcf.implied_growth(1.0, m, 0.09, 10, 0.02) == pytest.approx(g, abs=1e-10)
+    assert dcf.implied_growth(250.0, 250.0 * m, 0.09, 10, 0.02) == pytest.approx(g, abs=1e-10)   # invariant d'échelle
+    assert dcf.implied_multiple(g + 0.01, 0.09, 10, 0.02) > m
+
+
+def test_multiple_by_hand():
+    # g = g_term = 2 %, k = 9 % : rente croissante, multiple = 1,02 / 0,07 = 14,571…
+    assert dcf.implied_multiple(0.02, 0.09, 10, 0.02) == pytest.approx(1.02 / 0.07, rel=1e-12)
+

@@ -426,6 +426,33 @@ et mêmes taux (FRED 4,96 % et BCE 3,38 % au 22/10/2026, prime 5 %, N = 10, $g_{
 
 Écart entre les deux calculs : moins de $10^{-15}$.
 
+**Contrôle de vraisemblance.** La fiche affiche, à côté du g implicite, le multiple $VE / FCF_0$ observé. Les deux
+disent la même chose sous deux formes : `implied_multiple(g, k, N, g_term)` = $V(g)$ pour $FCF_0 = 1$ redonne exactement
+le multiple observé (testé). Repère : avec $g = 0$, $k = 9{,}16\ \%$ et $g_{term} = 2\ \%$, le multiple vaut environ 12 ;
+un multiple de 50 ou plus suppose une croissance forte et longue.
+
+*Apple, vérification à la main (24/10/2026, réglages par défaut : prime 4,20 %, Treasury 4,96 % au 22/10/2026,
+k = 9,16 %, N = 10, $g_{term}$ = 2 %, rémunération en actions déduite, approximation OCF − capex) :*
+
+| Élément | Valeur |
+|---|---|
+| FCFF 2023 / 2024 / 2025 (OCF − capex − rémunération en actions) | 88,75 / 97,12 / 85,90 Md$ |
+| FCFF de départ (moyenne) | 90,59 Md$ |
+| Rémunération en actions déduite (moyenne) | 11,80 Md$, soit 11,5 % du flux avant déduction |
+| VE = 5 217,6 (capitalisation) + 98,7 (dette) − 54,7 (trésorerie) − 77,7 (placements non courants) | 5 183,8 Md$ |
+| Multiple VE / FCF de départ | 57,2 (rendement du flux : 1,75 %) |
+| g implicite | 20,7 % par an pendant 10 ans |
+| sans déduire la rémunération en actions | multiple 50,6, g 19,1 % |
+| avec une prime de 5 % (k = 9,96 %) | g 22,6 % |
+
+Lecture : le calcul est juste (recoupé deux fois), mais l'hypothèse qu'il révèle est très éloignée de l'historique.
+20,7 % par an pendant 10 ans multiplie le flux par 6,6, à environ 600 Md$ en 2035, soit 1,4 fois le chiffre d'affaires
+de 2025 (416 Md$), alors que le FCFF n'a pas progressé sur 4 exercices et le chiffre d'affaires de 3 % par an environ.
+L'approximation OCF − capex biaise g vers le haut, mais faiblement : en reprenant la dernière charge publiée
+(3,9 Md$ en 2023, soit 3,2 Md$ après impôt) comme ordre de grandeur, g passe de 20,7 % à 20,3 %, de l'ordre
+d'un demi-point de g. Le prix ne s'explique donc, dans ce modèle, que par une croissance future bien supérieure au
+passé, ou par un coût du capital nettement plus bas que 9 %. C'est une lecture du prix, pas un avis sur le titre.
+
 ### Limites
 
 - Toutes ces mesures sont des **estimations sur le passé**. Pour des rendements i.i.d., l'erreur-type du Sharpe estimé sur $n$ périodes vaut $\sqrt{(1 + S_p^2/2)/n}$, avec $S_p$ le Sharpe par période (Lo, 2002). En données quotidiennes, $S_p$ est petit et l'erreur-type du Sharpe annualisé se réduit à environ $1/\sqrt{T}$, avec $T$ la durée en années. Sur 5 ans : environ 0,45. Un Sharpe estimé de 0,8 a donc un intervalle de confiance à 95 % d'environ $0{,}8 \pm 1{,}96 \times 0{,}45$, soit $[-0{,}1\ ;\ 1{,}7]$.

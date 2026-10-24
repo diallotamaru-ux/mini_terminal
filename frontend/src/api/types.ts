@@ -484,6 +484,7 @@ export interface Valuation {
   profile: ValuationProfile | null;
   fcff_rule: string | null;
   fcff0: number | null;
+  ev_multiple: number | null;
   fcf_window: string[];
   tax_rate: number | null;
   tax_source: string | null;

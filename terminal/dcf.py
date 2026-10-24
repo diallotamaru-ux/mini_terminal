@@ -303,6 +303,11 @@ def dcf_value(fcff0: float, g: float, k: float, n: int, g_term: float) -> float:
     return explicit + terminal
 
 
+def implied_multiple(g: float, k: float, n: int, g_term: float) -> float:
+    """Multiple VE / FCFF0 qu'une croissance g suppose : la valeur d'un FCFF0 de 1. Réciproque de implied_growth."""
+    return dcf_value(1.0, g, k, n, g_term)
+
+
 def implied_growth(fcff0: float, ev: float, k: float, n: int, g_term: float) -> float:
     """g tel que dcf_value(fcff0, g, …) = ev. V est strictement croissante en g quand FCFF0 > 0."""
     _check(k, n, g_term)

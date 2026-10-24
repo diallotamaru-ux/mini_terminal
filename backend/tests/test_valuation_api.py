@@ -72,6 +72,9 @@ def test_fiche_by_hand(vclient):
     assert v["k_used"]["label"] == "commun EUR" and v["g"] == kc["g"]
     # g vérifie l'équation : la valeur actualisée du FCFF au taux g égale la VE.
     assert dcf.dcf_value(807.5 * M, v["g"], 0.072, 10, 0.02) == pytest.approx(EV, rel=1e-5)
+    # Contrôle de vraisemblance : le multiple affiché est celui que le g implicite suppose.
+    assert v["ev_multiple"] == pytest.approx(EV / (807.5 * M), abs=1e-4)
+    assert dcf.implied_multiple(v["g"], 0.072, 10, 0.02) == pytest.approx(v["ev_multiple"], rel=1e-5)
     assert v["sentence"].startswith("Le prix actuel suppose une croissance du flux disponible de ")
     assert v["growth_revenue"] == {"value": pytest.approx(0.10), "status": "ok", "years": 2, "n_points": 3,
                                    "start": "2023-12-31", "end": "2025-12-31"}

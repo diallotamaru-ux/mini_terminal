@@ -24,6 +24,15 @@ def test_valid_history_passes():
     assert validate(ACCOUNTS, txs) == []
 
 
+@pytest.mark.parametrize("kind,extra", [("DEPOT", {}), ("RETRAIT", {}), ("FRAIS", {}),
+                                        ("DIVIDENDE", {"ticker": "AAA"})])
+def test_fees_outside_buy_and_sell_are_refused(kind, extra):
+    """Revue : un DEPOT de 100 avec 5 de frais passait la validation, et les frais disparaissaient du solde."""
+    txs = [tx("DEPOT", 0, amount=1000), tx("ACHAT", 0, ticker="AAA", q=1, p=100), tx(kind, 1, amount=100, fees=5, **extra)]
+    errs = errors_of(txs)
+    assert len(errs) == 1 and f"frais saisis sur un {kind}" in errs[0]
+
+
 def test_deposit_refused_in_securities_only_account():
     errs = errors_of([tx("DEPOT", 0, acc=SECU, amount=1000)])
     assert "titres seuls" in errs[0]

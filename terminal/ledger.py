@@ -181,6 +181,10 @@ def validate(accounts: list[Account], transactions: list[Transaction],
             errors.append(f"{lbl} : devise inconnue {tx.currency}.")
         if tx.fees < 0:
             errors.append(f"{lbl} : frais négatifs.")
+        elif tx.fees > 0 and tx.type not in (TxType.ACHAT, TxType.VENTE):
+            # Les frais ne comptent que sur un achat ou une vente : ailleurs ils seraient ignorés en silence.
+            errors.append(f"{lbl} : frais saisis sur un {tx.type}. Saisissez le montant net (dividende), ou une "
+                          f"opération FRAIS séparée.")
         if tx.fx_rate is not None:
             if tx.fx_rate <= 0:
                 errors.append(f"{lbl} : taux de change non positif.")

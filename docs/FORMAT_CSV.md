@@ -34,7 +34,7 @@ achetées avant la division par 10 de juin 2024 se saisissent `2;900`, pas `20;9
 | `quantite` | achat, vente | Quantité, fractions acceptées |
 | `prix` | achat, vente | Prix unitaire dans la devise de la cotation |
 | `montant` | dividende, dépôt, retrait, frais | Achat/vente : montant brut hors frais, facultatif (sinon quantité × prix ; contrôlé à 1 centime près). Dividende : montant **net** reçu. Dépôt, retrait, frais : montant positif |
-| `frais` | non | Frais de courtage, dans la devise de la transaction. Vide = 0 |
+| `frais` | non | Frais de courtage d'un achat ou d'une vente, dans la devise de la transaction. Vide = 0. Refusés sur les autres types : saisir un dividende net, ou une ligne FRAIS séparée |
 | `devise` | non | Devise de la transaction. Vide = devise de la cotation (ou EUR sans ticker). Doit être égale à la devise de la cotation |
 | `taux_change` | non | Taux appliqué par le courtier : euros pour 1 unité de devise (ex. `0,9150` pour 1 USD). Vide = taux de marché du jour |
 | `retenue` | non | Retenue à la source sur un dividende (information) |

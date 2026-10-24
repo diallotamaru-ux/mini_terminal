@@ -186,7 +186,8 @@ def risk_out(snap: Snapshot, provider: MarketDataProvider, rates: RateProvider, 
 
     w = settings.rolling_window
     vol = lambda r: pd.concat([pd.Series([np.nan], index=[pd.Timestamp(base)]),
-                               m.rolling_volatility(r.reindex(grid), window=w)])
+                               m.rolling_volatility(r.reindex(grid), window=w,
+                                                    periods=risk.BUSINESS_DAYS)])
     p_full = port.reindex(grid)                # avant le premier jour actif : NaN (pas de courbe)
     names = {i: settings.reference(i).name for i in (1, 2)}
     dates = [pd.Timestamp(base).date()] + [d.date() for d in grid]

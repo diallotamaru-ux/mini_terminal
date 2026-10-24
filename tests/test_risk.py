@@ -176,9 +176,11 @@ def test_full_row_reuses_metrics():
     r, rf, ref = _series(900)                                      # environ 3,5 ans
     row = risk.risk_row("Portefeuille", "portefeuille", r, rf, ref, span_days=1260)
     assert row.complete and row.n_days == 900 and row.n_weeks == 180
-    assert row.sharpe == pytest.approx(m.sharpe_ratio(r - rf, 0.0))
-    assert row.sharpe_ci == pytest.approx(m.sharpe_ci_hac(r - rf))           # robuste à l'autocorrélation
-    assert row.volatility == pytest.approx(m.annual_volatility(r))
+    A = risk.BUSINESS_DAYS                                         # grille lundi-vendredi : 261 points par an
+    assert row.sharpe == pytest.approx(m.sharpe_ratio(r - rf, 0.0, A))
+    assert row.sharpe_ci == pytest.approx(m.sharpe_ci_hac(r - rf, periods=A))   # robuste à l'autocorrélation
+    assert row.volatility == pytest.approx(m.annual_volatility(r, A))
+    assert row.calmar == pytest.approx(row.annual_return / abs(row.max_drawdown))
     assert row.max_drawdown == pytest.approx(m.max_drawdown(r))
     rw, bw, fw = risk.to_weekly(r)[0], risk.to_weekly(ref)[0], risk.to_weekly(rf)[0]
     assert row.beta == pytest.approx(m.beta(rw - fw, bw - fw)) and row.beta == pytest.approx(1.2, abs=0.05)
@@ -287,3 +289,21 @@ def test_weekend_valuation_date_keeps_weekend_returns():
     # Dimanche : samedi et dimanche composés dans le point du dimanche.
     r = pd.Series([0.01, 0.02], index=pd.DatetimeIndex(["2026-10-24", "2026-10-25"]))
     assert risk.to_business_days(r, end=date(2026, 10, 25)).iloc[0] == pytest.approx(1.01 * 1.02 - 1)
+
+
+def test_risk_row_annualizes_on_business_day_grid():
+    """Revue : grille lundi-vendredi (261 points par an) annualisée en base 252. Exactement +10 % sur 2023 :
+    le Calmar reposait sur un CAGR de 9,64 % alors que le rendement annuel affiché était 10,00 %."""
+    grid = risk.business_grid(date(2022, 12, 31), date(2023, 12, 31))
+    assert len(grid) == 261                                                   # 260 jours ouvrés + dimanche 31/12
+    rng = np.random.default_rng(3)
+    raw = rng.normal(0.0, 0.01, len(grid))
+    r = pd.Series(raw, index=grid)
+    r = (1 + r) * (1.10 / float((1 + r).prod())) ** (1 / len(r)) - 1          # total exactement +10 %
+    rf = pd.Series(0.0, index=grid)
+    row = risk.risk_row("P", "portefeuille", r, rf, None, span_days=365)
+    assert row.annual_return == pytest.approx(0.10, abs=1e-9)
+    assert row.volatility == pytest.approx(float(r.std(ddof=1)) * np.sqrt(261), rel=1e-9)
+    assert row.calmar == pytest.approx(row.annual_return / abs(row.max_drawdown), rel=1e-9)
+    assert row.sharpe == pytest.approx(float(r.mean() / r.std(ddof=1)) * np.sqrt(261), rel=1e-9)
+

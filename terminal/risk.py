@@ -38,6 +38,10 @@ PERIODS = ("origine", "ytd", "1y", "3y", "5y")
 PERIOD_LABELS = {"origine": "Depuis l'origine", "ytd": "Depuis le début de l'année", "1y": "1 an",
                  "3y": "3 ans", "5y": "5 ans"}
 WEEKLY = 52
+# Observations par an de la grille de jours ouvrés (lundi-vendredi, fériés compris, rendement nul ces jours-là) :
+# 365,25 × 5 / 7 ≈ 261. Annualiser cette grille en base 252 sous-estimait volatilité, Sharpe et Sortino d'environ
+# 1,7 % (revue indépendante). 252 reste juste pour une série de séances de bourse effectives.
+BUSINESS_DAYS = 261
 MIN_WEEKS = 26
 SHORT_HISTORY_YEARS = 3
 
@@ -252,12 +256,14 @@ def risk_row(name: str, kind: str, r: pd.Series, rf: pd.Series, ref: pd.Series |
     row.var95 = _num(m.historical_var(r))
     row.cvar95 = _num(m.historical_cvar(r))
     row.annual_return = annualize(row.total_return, span_days) if row.total_return is not None else None
-    row.volatility = _num(m.annual_volatility(r))
-    row.sharpe = _num(m.sharpe_ratio(ex, 0.0))
+    row.volatility = _num(m.annual_volatility(r, BUSINESS_DAYS))
+    row.sharpe = _num(m.sharpe_ratio(ex, 0.0, BUSINESS_DAYS))
     if row.sharpe is not None:
-        row.sharpe_ci = m.sharpe_ci_hac(ex)
-    row.sortino = _num(m.sortino_ratio(ex, 0.0))
-    row.calmar = _num(m.calmar_ratio(r))
+        row.sharpe_ci = m.sharpe_ci_hac(ex, periods=BUSINESS_DAYS)
+    row.sortino = _num(m.sortino_ratio(ex, 0.0, BUSINESS_DAYS))
+    # Calmar = rendement annualisé AFFICHÉ (jours calendaires) / |drawdown max| : cohérent avec la colonne voisine.
+    if row.annual_return is not None and row.max_drawdown:
+        row.calmar = _num(row.annual_return / abs(row.max_drawdown))
 
     if ref is not None and not is_reference:
         rw, _ = to_weekly(r)

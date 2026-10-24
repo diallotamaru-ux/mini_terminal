@@ -1,7 +1,7 @@
 ### Conventions
 
 - **Rendements simples quotidiens** : $r_t = P_t / P_{t-1} - 1$, avec $P_t$ le cours de clôture ajusté des dividendes et divisions d'actions.
-- **Annualisation** sur $A = 252$ séances. Le taux sans risque annuel $r_f$ est converti en taux quotidien $r_{f,d} = (1 + r_f)^{1/A} - 1$.
+- **Annualisation** sur $A = 252$ séances pour une série de séances de bourse effectives (portefeuille théorique, `legacy/`). Le portefeuille réel est mesuré sur une grille de jours ouvrés du lundi au vendredi, fériés compris (rendement nul ces jours-là), soit $A = 261$ points par an ($365{,}25 	imes 5/7$) : voir « Risque et comparaison ». Le taux sans risque annuel $r_f$ est converti en taux quotidien $r_{f,d} = (1 + r_f)^{1/A} - 1$.
 - **Calendriers** : seules les dates où tous les actifs cotent sont conservées. Le rendement du lundi d'une crypto inclut donc son week-end : le rendement total reste exact, mais la volatilité quotidienne de la crypto est légèrement lissée.
 - **Portefeuille** : $r_{p,t} = \sum_i w_i\, r_{i,t}$, avec $w_i$ le poids de l'actif $i$. Cela suppose un rééquilibrage quotidien. Un portefeuille réel, non rééquilibré, voit ses poids dériver. Cette hypothèse ne sert qu'au portefeuille théorique (`legacy/`). Le portefeuille réel est calculé à partir des transactions : voir la section suivante.
 
@@ -9,7 +9,7 @@
 
 | Indicateur | Formule | Lecture |
 |---|---|---|
-| CAGR | $(1 + R)^{A/N} - 1$ | $R$ rendement total, $N$ nombre de séances. Croissance annuelle composée. |
+| CAGR | $(1 + R)^{A/N} - 1$ | $R$ rendement total, $N$ nombre d'observations de la série. Croissance annuelle composée. |
 | Volatilité | $\sigma_d \sqrt{A}$ | $\sigma_d$ écart-type des rendements quotidiens. |
 | Sharpe | $\dfrac{\overline{r - r_{f,d}}}{\sigma(r - r_{f,d})}\sqrt{A}$ | Rendement excédentaire par unité de risque total. |
 | Sortino | $\dfrac{A\,\overline{r - r_{f,d}}}{DD}$ | $DD$ écart-type des seules baisses sous $r_{f,d}$, annualisé. |
@@ -80,7 +80,7 @@ changent plusieurs fois de signe : la première trouvée est renvoyée.
 
 **Annualisation.** $(1 + R)^{365/j} - 1$ sur $j$ jours calendaires, **seulement si $j \ge 365$** (convention
 GIPS). En deçà, le rendement est affiché sur la période. Les indicateurs de risque des sections précédentes
-restent en base 252 séances.
+sont annualisés sur la grille de jours ouvrés ($A = 261$).
 
 **Données manquantes.** Un cours est reporté au plus 7 jours (week-ends, jours fériés). Au-delà, la valeur est
 manquante, jamais nulle : le total est marqué incomplet et le TWR n'est pas calculé. Un jour de transaction sans
@@ -98,7 +98,7 @@ la sous-période se calculent alors avec les mêmes fonctions. Une période plus
 
 | Mesures | Fréquence | Raison |
 |---|---|---|
-| Rendement, volatilité, drawdown, VaR, CVaR, Sharpe, Sortino, Calmar | quotidienne (A = 252) | propres à une série : plus d'observations, aucun biais de synchronisation |
+| Rendement, volatilité, drawdown, VaR, CVaR, Sharpe, Sortino, Calmar | quotidienne, jours ouvrés (A = 261 ; Calmar = rendement annualisé affiché / drawdown max) | propres à une série : plus d'observations, aucun biais de synchronisation |
 | Bêta, alpha, corrélation, tracking error, ratio d'information | hebdomadaire (A = 52, semaines terminées le vendredi) | mesures croisées entre deux séries |
 
 Euronext clôture à 17 h 30, New York à 22 h (heure de Paris). Un mouvement américain de fin de journée n'apparaît
@@ -169,7 +169,7 @@ Mesures relatives masquées sous 26 semaines. Une valeur manquante rend la séri
 L'unité est le titre (ISIN, sinon ticker), regroupé sur tous les comptes : une même ligne dans deux comptes ne crée pas
 deux colonnes parfaitement corrélées. Les espèces sont exclues et les poids renormalisés sur les lignes risquées. Leur
 variance étant nulle, la volatilité du portefeuille total vaut $\sigma_{total} = (1 - e)\,\sigma_{risqué}$, avec $e$ la part
-d'espèces. Les deux chiffres sont affichés.
+d'espèces. Les deux chiffres sont affichés. La volatilité totale n'est calculée que si toutes les lignes détenues sont analysées : une ligne exclue (historique trop court, valeur manquante) a un risque inconnu. La part d'espèces est toujours rapportée au portefeuille entier.
 
 **Données.** Rendements **hebdomadaires** en EUR de chaque ligne (cours du fournisseur × taux du jour, jours ouvrés,
 semaines au vendredi), sur la fenêtre de la période choisie, quelle que soit la date d'achat. Les mesures croisées

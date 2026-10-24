@@ -214,8 +214,8 @@ Méthode de calcul détaillée : [`METHODE.md`](METHODE.md).
   - les banques et assurances sont exclues : il faudrait une valorisation par les fonds propres ;
   - **amélioration future** : lire les comptes américains directement dans SEC EDGAR (XBRL, gratuit et officiel)
     au lieu de Yahoo. Le recoupement d'Apple l'a utilisé à la main (METHODE.md).
-- **Bases d'annualisation** : rendement annualisé en jours calendaires (365), volatilité et ratios en séances (252)
-  ou en semaines (52), selon la convention de chaque mesure.
+- **Bases d'annualisation** : rendement annualisé en jours calendaires (365), volatilité et ratios en jours ouvrés (261,
+  grille lundi-vendredi) ou en semaines (52), selon la convention de chaque mesure.
 - **Petits écarts d'arrondi** entre la courbe de valeur (flottants) et les totaux (`Decimal`) : au plus
   quelques centimes.
 - **Pas de migrations de schéma** (Alembic) : les tables sont créées au démarrage. Un changement de schéma

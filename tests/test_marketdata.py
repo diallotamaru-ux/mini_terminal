@@ -226,3 +226,35 @@ def test_demo_universe_is_plausible(sim):
     assert b3.iloc[-1] / b3.iloc[0] - 1 <= 3.0
     w = px.resample("W-FRI").last().pct_change().dropna().corr()
     assert w.loc["QQQ", "PANX.PA"] > 0.9 and w.loc["IWDA.AS", "CW8.PA"] > 0.9
+
+
+def test_demo_two_factor_correlations(sim):
+    # Le facteur technologie sépare le Nasdaq du MSCI World (corrélations hebdomadaires en EUR).
+    px = sim._prices.loc["2021-01-04":"2026-10-23"].copy()
+    fx = sim.fx_rates("USD", date(2021, 1, 1), date(2026, 10, 23)).closes
+    for t in ("QQQ", "AAPL", "NVDA"):
+        px[t] = px[t] * fx.reindex(px.index).ffill()
+    w = px.resample("W-FRI").last().pct_change().dropna().corr()
+    assert 0.80 <= w.loc["QQQ", "IWDA.AS"] <= 0.92
+    assert w.loc["QQQ", "IWDA.AS"] < w.loc["IWDA.AS", "CW8.PA"]
+    assert w.loc["NVDA", "QQQ"] > w.loc["NVDA", "IWDA.AS"]          # exposition technologie
+    assert w.loc["MC.PA", "IWDA.AS"] > w.loc["MC.PA", "QQQ"]        # aucune exposition technologie
+
+
+def test_demo_prices_two_factor_model():
+    import numpy as np
+    from terminal import data
+    # Sans bêta technologie, le modèle est exactement celui à un facteur d'origine.
+    three = {"A": (0.08, 0.20, 0.9), "B": (0.10, 0.30, 1.2)}
+    four = {k: (*v, 0.0) for k, v in three.items()}
+    assert data.demo_prices(list(three), "2020-01-01", "2022-12-31", profile=three).equals(
+        data.demo_prices(list(four), "2020-01-01", "2022-12-31", profile=four))
+    # Sur un long échantillon, la corrélation retrouve la valeur théorique
+    # rho = 0,2^2 (b_i b_j + g_i g_j) / (sigma_i sigma_j).
+    prof = {"W": (0.0, 0.15, 0.72, 0.12), "N": (0.0, 0.21, 0.85, 0.60), "T": (0.0, 0.50, 1.20, 1.20)}
+    r = np.log(data.demo_prices(list(prof), "1900-01-01", "1999-12-31", seed=3, profile=prof)).diff().dropna()
+    c = r.corr()
+    for i, j in (("W", "N"), ("W", "T"), ("N", "T")):
+        th = 0.04 * (prof[i][2] * prof[j][2] + prof[i][3] * prof[j][3]) / (prof[i][1] * prof[j][1])
+        assert c.loc[i, j] == pytest.approx(th, abs=0.02), (i, j)
+

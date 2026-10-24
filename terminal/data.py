@@ -131,12 +131,15 @@ DEMO_PROFILE = {
 def demo_prices(tickers: list[str], start: str, end: str | None = None,
                 seed: int = 7, profile: dict | None = None) -> pd.DataFrame:
     """
-    Modèle à un facteur avec queues épaisses :
-        r_i,t = mu_i,d + beta_i * f_t + e_i,t
-    `profile` : paramètres (mu, sigma, bêta) par ticker ; DEMO_PROFILE par défaut.
-    f_t et e_i,t suivent des lois de Student à 4 degrés de liberté, normalisées
-    à variance unité puis mises à l'échelle. Ces données sont FICTIVES :
-    elles servent à tester le code, pas à prendre une décision.
+    Modèle à deux facteurs avec queues épaisses :
+        r_i,t = mu_i,d + beta_i * f_t + gamma_i * g_t + e_i,t
+    f_t : marché mondial ; g_t : facteur technologie, indépendant de f_t ; même volatilité de 20 %.
+    `profile` : (mu, sigma, bêta) ou (mu, sigma, bêta, gamma) par ticker ; DEMO_PROFILE par défaut.
+    Sans gamma (profil à trois paramètres), le modèle est celui à un facteur d'origine et les cours
+    sont identiques au bit près : g_t vient d'un générateur séparé qui ne décale pas les tirages.
+    f_t, g_t et e_i,t suivent des lois de Student à 4 degrés de liberté, normalisées à variance unité
+    puis mises à l'échelle. Ces données sont FICTIVES : elles servent à tester le code, pas à prendre
+    une décision.
     """
     rng = np.random.default_rng(seed)
     idx = pd.bdate_range(start=start, end=end or pd.Timestamp.today().normalize())
@@ -146,13 +149,15 @@ def demo_prices(tickers: list[str], start: str, end: str | None = None,
 
     sigma_f = 0.20 / np.sqrt(A)
     f = rng.standard_t(nu, n) * scale_t * sigma_f
+    g = np.random.default_rng([seed, 1]).standard_t(nu, n) * scale_t * sigma_f
 
     cols = {}
     for t in tickers:
-        mu, sig, b = (DEMO_PROFILE if profile is None else profile).get(t, (0.08, 0.25, 0.8))
+        mu, sig, b, *rest = (DEMO_PROFILE if profile is None else profile).get(t, (0.08, 0.25, 0.8))
+        gam = rest[0] if rest else 0.0
         sig_d = sig / np.sqrt(A)
-        idio_var = max(sig_d ** 2 - (b * sigma_f) ** 2, (0.2 * sig_d) ** 2)
+        idio_var = max(sig_d ** 2 - (b ** 2 + gam ** 2) * sigma_f ** 2, (0.2 * sig_d) ** 2)
         e = rng.standard_t(nu, n) * scale_t * np.sqrt(idio_var)
-        r = mu / A - 0.5 * sig_d ** 2 + b * f + e
+        r = mu / A - 0.5 * sig_d ** 2 + b * f + gam * g + e
         cols[t] = 100.0 * np.exp(np.cumsum(r))
     return pd.DataFrame(cols, index=idx)

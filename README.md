@@ -69,7 +69,7 @@ La base SQLite est conservée dans le volume `mt-data`.
 ### Tests
 
 ```powershell
-.venv\Scripts\python -m pytest --cov      # 232 tests ; couverture du module de calcul : 98 %
+.venv\Scripts\python -m pytest --cov      # 234 tests ; couverture du module de calcul : 98 %
 cd frontend; npx tsc -p .                # vérification des types
 ```
 
@@ -190,8 +190,9 @@ Méthode de calcul détaillée : [`METHODE.md`](METHODE.md).
   - avec des lignes à historique partiel, la covariance par paires suivie de la projection de Higham est une
     adaptation, signalée par un garde-fou ;
   - l'ENB par ACP est instable quand les valeurs propres sont proches (portefeuille déjà diversifié) ;
-  - la démo, à un seul facteur commun, surestime la corrélation entre Nasdaq et MSCI World (0,96 contre environ 0,85
-    à 0,90 en réalité).
+  - la démo suit un modèle à deux facteurs (marché mondial et technologie). Ses ETF cotés en euros n'ont pas
+    d'exposition au dollar : la corrélation entre QQQ converti en EUR et l'ETF Nasdaq du PEA est de 0,91, contre
+    environ 0,99 en réalité.
 - **Bases d'annualisation** : rendement annualisé en jours calendaires (365), volatilité et ratios en séances (252)
   ou en semaines (52), selon la convention de chaque mesure.
 - **Petits écarts d'arrondi** entre la courbe de valeur (flottants) et les totaux (`Decimal`) : au plus

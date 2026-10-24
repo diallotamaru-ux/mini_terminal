@@ -1,7 +1,7 @@
 """
 Fournisseur simulé : tests et mode démo, sans réseau.
 
-Les cours viennent de `data.demo_prices` (modèle à un facteur, queues
+Les cours viennent de `data.demo_prices` (modèle à deux facteurs, queues
 épaisses). Ils sont générés une fois sur une fenêtre fixe, puis découpés :
 le cours d'un ticker à une date donnée ne dépend donc ni de la date de la
 requête ni des autres tickers demandés. Toutes les séries portent
@@ -25,19 +25,21 @@ from .base import InstrumentInfo, MarketDataProvider, PriceSeries, clean_series
 SIM_START = "2015-01-01"
 SIM_END = "2030-12-31"
 
-# Profils de long terme (rendement espéré mu, volatilité sigma, bêta au facteur commun de
-# volatilité 20 %). Les ETF d'un même indice ont un bêta qui porte presque toute leur
-# variance : corrélation hebdomadaire d'environ 0,96, comme dans la réalité.
+# Profils de long terme (rendement espéré mu, volatilité sigma, bêta au marché mondial, bêta au
+# facteur technologie ; les deux facteurs sont indépendants, de volatilité 20 %). Le facteur
+# technologie sépare le Nasdaq du MSCI World : corrélation hebdomadaire en EUR d'environ 0,86,
+# au lieu de 0,96 avec un seul facteur (0,85 à 0,90 en réalité). Deux ETF d'un même indice
+# gardent une corrélation supérieure à 0,9.
 SIM_PROFILE = {
-    "QQQ":     (0.14, 0.22, 1.10),
-    "PANX.PA": (0.13, 0.23, 1.14),
-    "IWDA.AS": (0.09, 0.15, 0.75),
-    "CW8.PA":  (0.09, 0.15, 0.75),
-    "AAPL":    (0.15, 0.28, 1.10),
-    "MC.PA":   (0.09, 0.27, 0.80),
-    "ASML.AS": (0.14, 0.35, 1.30),
-    "NVDA":    (0.30, 0.50, 1.60),
-    "BTC-EUR": (0.30, 0.65, 0.60),
+    "QQQ":     (0.14, 0.21, 0.85, 0.60),
+    "PANX.PA": (0.13, 0.22, 0.87, 0.62),
+    "IWDA.AS": (0.09, 0.15, 0.72, 0.12),
+    "CW8.PA":  (0.09, 0.15, 0.72, 0.12),
+    "AAPL":    (0.15, 0.28, 0.90, 0.60),
+    "MC.PA":   (0.09, 0.27, 0.85, 0.00),
+    "ASML.AS": (0.14, 0.35, 1.00, 0.90),
+    "NVDA":    (0.30, 0.50, 1.20, 1.20),
+    "BTC-EUR": (0.30, 0.65, 0.75, 0.65),
 }
 
 # Une trajectoire simulée reste un tirage. La graine est la première (en partant de 0)
@@ -46,7 +48,7 @@ SIM_PROFILE = {
 #   indices : 3 % à 18 % par an, volatilité 12 % à 28 % ;
 #   actions : -10 % à 35 % par an, volatilité 18 % à 60 % ;
 #   bitcoin : 5 % à 60 % par an, volatilité 45 % à 80 %, au plus +300 % sur les 3 dernières années.
-SIM_SEED = 0
+SIM_SEED = 56
 PLAUSIBLE = {"index": (0.03, 0.18, 0.12, 0.28), "stock": (-0.10, 0.35, 0.18, 0.60),
              "btc": (0.05, 0.60, 0.45, 0.80)}
 KIND = {"QQQ": "index", "PANX.PA": "index", "IWDA.AS": "index", "CW8.PA": "index", "AAPL": "stock",

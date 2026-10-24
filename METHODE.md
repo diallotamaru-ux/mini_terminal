@@ -219,8 +219,17 @@ au hasard, 40 échantillons par cas (moyenne ± écart-type).
 Lecture : l'ENB par ACP, dominé par le premier facteur, est peu sensible à l'estimateur. Avec 150 semaines, les trois
 estimateurs se valent. Quand l'historique raccourcit (60 semaines), la cible identité **surestime** l'ENB par ACP et
 augmente la dispersion. La corrélation constante reste la plus proche de la vérité et la plus stable. Sur le portefeuille
-de démonstration (7 lignes, 1 an au 24/10/2026), l'ENB par ACP vaut 1,34 avec la corrélation constante, **1,41** avec
-l'identité et 1,33 avec l'empirique.
+de démonstration (7 lignes, 1 an au 24/10/2026, modèle à deux facteurs), l'ENB par ACP vaut 2,17 avec la corrélation
+constante, 2,12 avec l'identité et 2,08 avec l'empirique. Ici la cible identité ne gonfle pas l'ENB : elle rapproche
+aussi les variances, ce qui réduit le poids du bitcoin (volatilité 65 %) dans le premier facteur. Sur un seul
+échantillon, l'écart entre estimateurs reste inférieur à l'erreur d'estimation.
+
+**Données de démonstration.** Modèle à deux facteurs indépendants (marché mondial et technologie, volatilité 20 %
+chacun), plus un bruit propre à chaque ligne, avec des queues épaisses (Student à 4 degrés de liberté). La corrélation
+théorique vaut $\rho_{ij} = 0{,}2^2\,(\beta_i\beta_j + \gamma_i\gamma_j)/(\sigma_i\sigma_j)$, avec $\beta$ l'exposition
+au marché et $\gamma$ l'exposition à la technologie (testé sur un long échantillon). Le facteur technologie sépare le
+Nasdaq du MSCI World : corrélation hebdomadaire en EUR de 0,86 sur 2021-2026, au lieu de 0,96 avec un seul facteur
+(environ 0,85 à 0,90 en réalité). Ces données sont fictives.
 
 **Mesures.** Celles de `metrics.py` (`risk_contributions`, `pca_diversification`, `minimum_torsion_diversification`),
 auxquelles on passe la covariance estimée (paramètre `cov`). Contributions d'Euler par ligne. Par compte et par classe,

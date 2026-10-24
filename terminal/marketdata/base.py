@@ -68,6 +68,7 @@ FUNDAMENTAL_FIELDS = (
     "financial_debt",     # dette financière (emprunts, obligations, billets de trésorerie), HORS dettes locatives
     "lease_liabilities",  # dettes locatives (contrats de location), à part
     "cash_sti",           # trésorerie et placements à court terme
+    "lt_investments",     # placements financiers non courants (titres à plus d'un an, hors mises en équivalence)
     "minority_interest",  # intérêts minoritaires
     "diluted_shares",     # nombre moyen d'actions dilué de l'exercice
 )

@@ -530,7 +530,7 @@ class SimulationOut(BaseModel):
 # ---------------------------------------------------------------------------
 
 FundamentalField = Literal["revenue", "ocf", "capex", "fcf_reported", "sbc", "interest_expense", "pretax_income",
-                           "tax_provision", "financial_debt", "lease_liabilities", "cash_sti", "minority_interest",
+                           "tax_provision", "financial_debt", "lease_liabilities", "cash_sti", "lt_investments", "minority_interest",
                            "diluted_shares"]
 
 
@@ -590,6 +590,7 @@ class EvOut(BaseModel):
     debt: float
     debt_rule: str
     cash: float
+    lt_investments: float | None               # None : manquant, non retranché
     minority: float | None
     ev: float
     balance_date: dt.date

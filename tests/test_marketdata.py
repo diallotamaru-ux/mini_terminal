@@ -157,7 +157,8 @@ def yahoo(monkeypatch):
                                           "Current Debt And Capital Lease Obligation": [None, 60.0],
                                           "Current Capital Lease Obligation": [None, 10.0],
                                           "Long Term Capital Lease Obligation": [None, 40.0],
-                                          "Capital Lease Obligations": [45.0, None]}}},
+                                          "Capital Lease Obligations": [45.0, None],
+                                          "Investmentin Financial Assets": [80.0, None]}}},
         "FUNDDOWN": {"currency": "EUR", "statements_error": True},
     }
     return YahooProvider()
@@ -303,6 +304,8 @@ def test_yahoo_fundamentals_mapping(yahoo):
     assert t.loc["2024-12-31", "financial_debt"] == 320.0                     # 270 + (60 − 10)
     assert t.loc["2025-12-31", "lease_liabilities"] == 45.0                   # total publié
     assert t.loc["2024-12-31", "lease_liabilities"] == 50.0                   # 40 + 10
+    assert t.loc["2025-12-31", "lt_investments"] == 80.0
+    assert pd.isna(t.loc["2024-12-31", "lt_investments"])                    # absent reste absent
 
 
 def test_yahoo_fundamentals_errors(yahoo):

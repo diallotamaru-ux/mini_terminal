@@ -379,7 +379,8 @@ def analyze(s: Session, snap: Snapshot, provider: MarketDataProvider, rates: Rat
         warnings.extend(ev.warnings)
         out["ev"] = schemas.EvOut(price=ev.price, price_date=price_date, price_currency=t.quote_currency, fx=_r(ev.fx, 8),
                                   accounts_currency=cur, shares=ev.shares, market_cap=_r(ev.market_cap, 0),
-                                  debt=ev.debt, debt_rule=ev.debt_rule, cash=ev.cash, minority=ev.minority,
+                                  debt=ev.debt, debt_rule=ev.debt_rule, cash=ev.cash, lt_investments=ev.lt_investments,
+                                  minority=ev.minority,
                                   ev=_r(ev.ev, 0), balance_date=ev.balance_date.date())
         if price_date is not None and (price_date - ev.balance_date.date()).days > 31:
             warnings.append(f"Décalage de dates : cours du {_fr_date(price_date)}, dette, trésorerie et nombre "

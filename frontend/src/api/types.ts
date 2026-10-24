@@ -383,7 +383,7 @@ export interface Simulation {
 
 export type FundamentalField =
   | "revenue" | "ocf" | "capex" | "fcf_reported" | "sbc" | "interest_expense" | "pretax_income" | "tax_provision"
-  | "financial_debt" | "lease_liabilities" | "cash_sti" | "minority_interest" | "diluted_shares";
+  | "financial_debt" | "lease_liabilities" | "cash_sti" | "lt_investments" | "minority_interest" | "diluted_shares";
 
 export interface FundamentalCell {
   value: string | null;
@@ -441,6 +441,7 @@ export interface EvOut {
   debt: number;
   debt_rule: string;
   cash: number;
+  lt_investments: number | null;
   minority: number | null;
   ev: number;
   balance_date: string;

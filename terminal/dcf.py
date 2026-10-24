@@ -36,7 +36,7 @@ BLUME = (0.67, 0.33)                          # β ajusté = 0,67 β + 0,33 (Blu
 FIELD_LABELS = {
     "revenue": "chiffre d'affaires", "ocf": "flux de trésorerie d'exploitation", "capex": "investissements",
     "fcf_reported": "flux disponible publié", "sbc": "rémunération en actions", "interest_expense": "charge d'intérêts",
-    "pretax_income": "résultat avant impôt", "tax_provision": "impôt sur les résultats", "financial_debt": "dette financière",
+    "pretax_income": "résultat avant impôt", "tax_provision": "impôt sur les résultats", "financial_debt": "dette financière", "lt_investments": "placements non courants",
     "lease_liabilities": "dettes locatives", "cash_sti": "trésorerie et placements", "minority_interest":
     "intérêts minoritaires", "diluted_shares": "nombre d'actions dilué",
 }
@@ -228,6 +228,7 @@ class EnterpriseValue:
     debt: float
     debt_rule: str
     cash: float
+    lt_investments: float | None             # None : manquant, non retranché (avertissement)
     minority: float | None
     ev: float
     balance_date: pd.Timestamp
@@ -235,7 +236,11 @@ class EnterpriseValue:
 
 
 def enterprise_value(table: pd.DataFrame, price: float, fx: float, a: Assumptions) -> EnterpriseValue:
-    """VE = cours × actions diluées + dette − trésorerie + minoritaires, au dernier bilan annuel."""
+    """
+    VE = cours × actions diluées + dette − trésorerie − placements non courants + minoritaires, au dernier bilan.
+    Placements non courants manquants : ils ne sont pas retranchés, la cellule reste « manquant » et un avertissement
+    le dit (la VE peut être surestimée). On ne bloque pas : la plupart des sociétés n'en ont pas de significatifs.
+    """
     if not table.index.size:
         raise DCFError("historique", "Aucun exercice disponible.")
     d = table.index[-1]
@@ -263,10 +268,15 @@ def enterprise_value(table: pd.DataFrame, price: float, fx: float, a: Assumption
     if minority is None:
         warnings.append("Approximation acceptée : intérêts minoritaires manquants, non ajoutés à la VE. Si la société "
                         "en a, la VE est sous-estimée et le g implicite aussi.")
+    lt = None if pd.isna(row["lt_investments"]) else float(row["lt_investments"])
+    if lt is None:
+        warnings.append("Placements financiers non courants manquants chez le fournisseur : non retranchés de la VE. "
+                        "Si la société en détient, la VE et le g implicite sont surestimés. Saisissez-les (0 si "
+                        "aucun) dans le tableau des comptes.")
     cap = price * fx * float(row["diluted_shares"])
-    ev = cap + debt - float(row["cash_sti"]) + (minority or 0.0)
-    return EnterpriseValue(price, fx, float(row["diluted_shares"]), cap, debt, rule, float(row["cash_sti"]), minority,
-                           ev, d, warnings)
+    ev = cap + debt - float(row["cash_sti"]) - (lt or 0.0) + (minority or 0.0)
+    return EnterpriseValue(price, fx, float(row["diluted_shares"]), cap, debt, rule, float(row["cash_sti"]), lt,
+                           minority, ev, d, warnings)
 
 
 # ---------------------------------------------------------------------------

@@ -20,7 +20,7 @@ def table(**years):
 
 # Exemple complet : t = 200 / 800 = 25 %.
 FULL = dict(ocf=1000.0, capex=-200.0, interest_expense=50.0, pretax_income=800.0, tax_provision=200.0, sbc=30.0,
-            financial_debt=500.0, lease_liabilities=100.0, cash_sti=300.0, minority_interest=20.0, diluted_shares=10.0,
+            financial_debt=500.0, lease_liabilities=100.0, cash_sti=300.0, lt_investments=0.0, minority_interest=20.0, diluted_shares=10.0,
             revenue=5000.0)
 
 
@@ -293,3 +293,17 @@ def test_sentence_is_neutral():
     assert "−5,0 %" in dcf.sentence(-0.05, 10, 0.02, 0.09)
     for word in ("acheter", "vendre", "sous-évalu", "surévalu", "opportunit"):
         assert word not in s.lower()
+
+
+def test_long_term_investments_subtracted_like_cash():
+    """Placements non courants : retranchés de la VE ; manquants, ils restent manquants (pas 0) et sont signalés."""
+    a = Assumptions(k=0.09, standard="us_gaap")
+    base = dcf.enterprise_value(table(y2025={**FULL, "lt_investments": np.nan}), 100.0, 1.0, a)
+    assert base.lt_investments is None and "non courants manquants" in base.warnings[-1]
+    with_lt = dcf.enterprise_value(table(y2025={**FULL, "lt_investments": 70.0}), 100.0, 1.0, a)
+    assert with_lt.lt_investments == 70.0 and with_lt.ev == base.ev - 70.0
+    assert not any("non courants" in w for w in with_lt.warnings)
+    zero = dcf.enterprise_value(table(y2025={**FULL, "lt_investments": 0.0}), 100.0, 1.0, a)
+    assert zero.lt_investments == 0.0 and zero.ev == base.ev                   # 0 saisi : sans avertissement
+    assert not any("non courants" in w for w in zero.warnings)
+

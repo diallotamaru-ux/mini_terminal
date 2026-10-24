@@ -208,8 +208,8 @@ Méthode de calcul détaillée : [`METHODE.md`](METHODE.md).
     acceptée et signalée ;
   - la norme comptable et le classement des intérêts sont proposés d'après la cotation : à vérifier dans le rapport
     annuel ;
-  - « trésorerie et placements » ne compte que les placements courants (Apple : 77,7 Md$ de titres à plus d'un an
-    exclus ; à saisir à la main pour les inclure) ;
+  - les placements financiers non courants sont retranchés de la VE s'ils sont publiés chez Yahoo ; sinon ils
+    s'affichent « manquant », ne sont pas retranchés, et un avertissement invite à les saisir (0 si aucun) ;
   - en US GAAP, les locations-financement sont exclues de la dette avec les locations simples (effet mineur) ;
   - les banques et assurances sont exclues : il faudrait une valorisation par les fonds propres ;
   - **amélioration future** : lire les comptes américains directement dans SEC EDGAR (XBRL, gratuit et officiel)

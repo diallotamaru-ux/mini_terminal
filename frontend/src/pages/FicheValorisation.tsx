@@ -20,6 +20,7 @@ export const FIELDS: { key: FundamentalField; label: string; amount: boolean }[]
   { key: "financial_debt", label: "Dette financière (hors locations)", amount: true },
   { key: "lease_liabilities", label: "Dettes locatives", amount: true },
   { key: "cash_sti", label: "Trésorerie et placements", amount: true },
+  { key: "lt_investments", label: "Placements financiers non courants", amount: true },
   { key: "minority_interest", label: "Intérêts minoritaires", amount: true },
   { key: "diluted_shares", label: "Actions diluées (moyenne)", amount: false },
 ];
@@ -124,6 +125,8 @@ function EvCard({ v }: { v: Valuation }) {
           <tr><td>= Capitalisation</td><td className="r num">{big(e.market_cap, cur)}</td></tr>
           <tr><td>+ Dette<div className="text-[11px] text-muted">{e.debt_rule}</div></td><td className="r num">{big(e.debt, cur)}</td></tr>
           <tr><td>− Trésorerie et placements</td><td className="r num">{big(e.cash, cur)}</td></tr>
+          <tr><td>− Placements financiers non courants</td>
+            <td className="r num">{e.lt_investments === null ? "manquant (non retranchés)" : big(e.lt_investments, cur)}</td></tr>
           <tr><td>+ Intérêts minoritaires</td><td className="r num">{e.minority === null ? "manquant (approximation)" : big(e.minority, cur)}</td></tr>
           <tr className="font-semibold"><td>= Valeur d'entreprise</td><td className="r num">{big(e.ev, cur)}</td></tr>
         </tbody>

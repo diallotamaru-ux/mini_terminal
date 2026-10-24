@@ -2,7 +2,7 @@
 API Valorisation (DCF inversé), sur des cours et des comptes fixés à la main.
 
 AAA.PA (EUR, IFRS proposée) : trois exercices identiques, FCFF = 1 000 − 200 + 50 × 0,75 − 30 = 807,5 M ;
-VE = 110 × 100 M + 600 M − 300 M + 20 M = 11 320 M ; k commun = 3 % (taux long de test) + 5 % = 8 %.
+VE = 110 × 100 M + 600 M − 300 M − 50 M (placements non courants) + 20 M = 11 270 M ; k commun = 3 % (taux long de test) + 5 % = 8 %.
 USX (USD, US GAAP proposée) : charge d'intérêts manquante sur le dernier exercice -> bloquée.
 BBB.PA : ETF -> exclu.
 """
@@ -26,7 +26,7 @@ def rows(**fields):
 
 
 BASE = dict(ocf=1000 * M, capex=-200 * M, interest_expense=50 * M, pretax_income=800 * M, tax_provision=200 * M,
-            sbc=30 * M, financial_debt=500 * M, lease_liabilities=100 * M, cash_sti=300 * M, minority_interest=20 * M,
+            sbc=30 * M, financial_debt=500 * M, lease_liabilities=100 * M, cash_sti=300 * M, lt_investments=50 * M, minority_interest=20 * M,
             diluted_shares=100 * M, revenue=[4000 * M, 4400 * M, 4840 * M])
 
 
@@ -50,7 +50,7 @@ def vclient(client, provider):
     return client
 
 
-EV = 110 * 100 * M + 600 * M - 300 * M + 20 * M
+EV = 110 * 100 * M + 600 * M - 300 * M - 50 * M + 20 * M
 
 
 def settings(c, **kw):
@@ -65,6 +65,7 @@ def test_fiche_by_hand(vclient):
     assert v["status"] == "ok" and v["missing"] == []
     assert v["fcff0"] == pytest.approx(807.5 * M) and v["tax_rate"] == pytest.approx(0.25)
     assert v["ev"]["ev"] == pytest.approx(EV) and v["ev"]["market_cap"] == pytest.approx(11000 * M)
+    assert v["ev"]["lt_investments"] == 50 * M
     assert "IFRS 16" in v["ev"]["debt_rule"]
     kc = v["k_common"]
     assert kc["k"] == pytest.approx(0.08) and "3,00 %" in kc["detail"] and "Taux longs de test" in kc["detail"]

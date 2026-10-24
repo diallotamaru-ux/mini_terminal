@@ -269,11 +269,22 @@ de Z %. »
 **Flux et valeur : ne jamais mélanger.** Le flux retenu est le FCFF, flux disponible pour l'**entreprise**, avant
 paiement des créanciers. Il est actualisé au coût du capital et comparé à la **valeur d'entreprise** :
 
-$$VE = \text{cours} \times \text{change} \times \text{actions diluées} + \text{dette} - \text{trésorerie et placements} + \text{intérêts minoritaires}$$
+$$VE = \text{cours} \times \text{change} \times \text{actions diluées} + \text{dette} - \text{trésorerie et placements} - \text{placements non courants} + \text{intérêts minoritaires}$$
 
 Comparer un FCFF à la seule capitalisation ignorerait la dette. Comparer un flux des actionnaires (après intérêts) à
 la VE compterait la dette deux fois. Le code n'offre qu'une voie (`implied_growth(fcff0, ev, …)`), ce qui rend le
 mélange impossible. Les minoritaires sont ajoutés parce que le FCFF consolidé inclut leur part.
+
+**Placements financiers non courants.** Des titres détenus à plus d'un an (obligations, titres disponibles à la
+vente) sont un actif financier comme la trésorerie : leurs revenus ne sont pas dans le FCFF, ils sont donc retranchés
+de la VE. Champ `lt_investments`, lu chez Yahoo (ligne « Investmentin Financial Assets ») ou saisi à la main. Les
+participations mises en équivalence (« Long Term Equity Investment », par exemple la part d'ASML dans Carl Zeiss SMT)
+ne sont pas retranchées : ce sont des participations opérationnelles, pas des placements. Exemple : Apple détient
+77,7 Md$ de titres négociables non courants au 27/09/2025 (10-K), en plus de 54,7 Md$ de trésorerie et placements
+courants ; les ignorer surestimerait la VE de 1,5 % et le g implicite de 0,2 point (22,8 % au lieu de 22,6 %).
+Absent chez le fournisseur, le champ reste « manquant » (jamais 0). Le calcul n'est pas bloqué, parce que la plupart
+des sociétés n'en ont pas de significatifs, mais les placements ne sont pas retranchés et un avertissement le dit :
+la VE et le g implicite peuvent être surestimés. Saisir 0 confirme l'absence et retire l'avertissement.
 
 **FCFF par exercice.**
 
@@ -381,9 +392,9 @@ nulle à perpétuité. Elle reste sous la croissance nominale de long terme (inf
 - **Intérêts** : depuis l'exercice 2024, Apple ne publie plus sa charge d'intérêts à part (elle est incluse dans
   « Other income/(expense), net »). Le blocage est donc juste, et l'approximation OCF − capex est la seule voie sans
   invention. Avec environ 99 Md$ de dette, l'effet est faible devant un FCFF de 90 Md$.
-- **Placements non courants** : Apple détient 77,7 Md$ de titres négociables à plus d'un an, absents de
-  « trésorerie et placements » chez Yahoo. Les inclure (saisie manuelle de la trésorerie) ramène la VE de 5 262 à
-  5 184 Md$ et le g implicite de 22,8 % à 22,6 %.
+- **Placements non courants** : 77,7 Md$ dans le 10-K, identiques chez Yahoo (« Investmentin Financial Assets »),
+  désormais lus et retranchés de la VE (champ `lt_investments`). Le recalcul indépendant ci-dessous date d'avant ce
+  champ ; avec lui, la VE passe de 5 262 à 5 184 Md$ et le g implicite de 22,8 % à 22,6 %.
 - **Minoritaires** : Apple n'en a pas ; Yahoo ne publie pas la ligne, à saisir 0.
 
 *LVMH (IFRS), communiqué des résultats annuels 2025 du 27/01/2026, en M€ :*

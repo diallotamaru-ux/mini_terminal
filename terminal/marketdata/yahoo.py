@@ -28,6 +28,7 @@ FUNDAMENTAL_ROWS = {
                     "Pretax Income": "pretax_income", "Tax Provision": "tax_provision",
                     "Diluted Average Shares": "diluted_shares"},
     "balance_sheet": {"Cash Cash Equivalents And Short Term Investments": "cash_sti",
+                      "Investmentin Financial Assets": "lt_investments",
                       "Minority Interest": "minority_interest"},
 }
 

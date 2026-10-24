@@ -102,6 +102,8 @@ def merged_table(s: Session, f: Fundamentals | None, instrument_id: int) -> Merg
                           .where(models.FundamentalOverride.instrument_id == instrument_id)).all()
     manual = {}
     for o in overrides:
+        if o.field not in FUNDAMENTAL_FIELDS:                # champ renommé depuis la saisie (ex. total_debt)
+            continue
         d = pd.Timestamp(o.fiscal_end)
         if d not in table.index:
             table.loc[d] = np.nan
@@ -213,9 +215,7 @@ def k_capm(rf: float | None, settings: AnalysisSettings, b: float | None, ev: dc
         return schemas.KOut(k=None, label=label, detail="", error="Valeur d'entreprise non calculable.")
     debt = ev.debt
     # Dette moyenne des deux derniers bilans, selon la même règle que la VE.
-    hist = table["total_debt"]
-    if a.standard == "us_gaap" and table["lease_liabilities"].notna().any():
-        hist = hist - table["lease_liabilities"]
+    hist = table["financial_debt"] + (table["lease_liabilities"] if a.standard == "ifrs" else 0.0)
     avg = float(hist.dropna().iloc[-2:].mean()) if hist.notna().any() else None
     interest = table["interest_expense"].iloc[-1] if len(table) else np.nan
     c = dcf.capm_k(rf, float(settings.erp), b, ev.market_cap, debt,

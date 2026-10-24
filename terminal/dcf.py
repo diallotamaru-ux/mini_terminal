@@ -36,7 +36,7 @@ BLUME = (0.67, 0.33)                          # β ajusté = 0,67 β + 0,33 (Blu
 FIELD_LABELS = {
     "revenue": "chiffre d'affaires", "ocf": "flux de trésorerie d'exploitation", "capex": "investissements",
     "fcf_reported": "flux disponible publié", "sbc": "rémunération en actions", "interest_expense": "charge d'intérêts",
-    "pretax_income": "résultat avant impôt", "tax_provision": "impôt sur les résultats", "total_debt": "dette totale",
+    "pretax_income": "résultat avant impôt", "tax_provision": "impôt sur les résultats", "financial_debt": "dette financière",
     "lease_liabilities": "dettes locatives", "cash_sti": "trésorerie et placements", "minority_interest":
     "intérêts minoritaires", "diluted_shares": "nombre d'actions dilué",
 }
@@ -241,7 +241,10 @@ def enterprise_value(table: pd.DataFrame, price: float, fx: float, a: Assumption
     d = table.index[-1]
     row = table.loc[d]
     missing = [MissingItem(d, f, "saisir la valeur (0 si la société n'en a pas)")
-               for f in ("diluted_shares", "total_debt", "cash_sti") if pd.isna(row[f])]
+               for f in ("diluted_shares", "financial_debt", "cash_sti") if pd.isna(row[f])]
+    if a.standard == "ifrs" and pd.isna(row["lease_liabilities"]):
+        missing.append(MissingItem(d, "lease_liabilities", "saisir la valeur (0 si la société n'en a pas) : en "
+                                                           "IFRS, les dettes locatives font partie de la dette"))
     if pd.isna(row["minority_interest"]) and not a.accept_minority_approx:
         missing.append(MissingItem(d, "minority_interest",
                                    "saisir la valeur (0 si la société n'en a pas), ou accepter l'approximation"))
@@ -250,17 +253,12 @@ def enterprise_value(table: pd.DataFrame, price: float, fx: float, a: Assumption
     if not (price > 0 and fx > 0):
         raise DCFError("cours", "Cours ou taux de change manquant à la date de valorisation.")
     warnings: list[str] = []
-    total_debt = float(row["total_debt"])
+    debt = float(row["financial_debt"])
     if a.standard == "ifrs":
-        debt, rule = total_debt, "dette totale, dettes locatives comprises (IFRS 16 : loyers classés en financement)"
-    elif pd.isna(row["lease_liabilities"]):
-        debt, rule = total_debt, "dette totale (dettes locatives non séparables dans les données)"
-        warnings.append("US GAAP : le montant des dettes locatives n'est pas séparable dans les données du "
-                        "fournisseur. La dette peut inclure des locations simples dont les loyers sont déjà déduits "
-                        "de l'OCF : la VE serait alors surestimée. Saisissez les dettes locatives si besoin.")
+        debt += float(row["lease_liabilities"])
+        rule = "dette financière + dettes locatives (IFRS 16 : loyers classés en financement)"
     else:
-        debt = total_debt - float(row["lease_liabilities"])
-        rule = "dette totale hors dettes locatives (US GAAP : loyers déjà déduits de l'OCF)"
+        rule = "dette financière, dettes locatives exclues (US GAAP : loyers déjà déduits de l'OCF)"
     minority = None if pd.isna(row["minority_interest"]) else float(row["minority_interest"])
     if minority is None:
         warnings.append("Approximation acceptée : intérêts minoritaires manquants, non ajoutés à la VE. Si la société "

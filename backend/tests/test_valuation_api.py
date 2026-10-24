@@ -26,7 +26,7 @@ def rows(**fields):
 
 
 BASE = dict(ocf=1000 * M, capex=-200 * M, interest_expense=50 * M, pretax_income=800 * M, tax_provision=200 * M,
-            sbc=30 * M, total_debt=600 * M, lease_liabilities=100 * M, cash_sti=300 * M, minority_interest=20 * M,
+            sbc=30 * M, financial_debt=500 * M, lease_liabilities=100 * M, cash_sti=300 * M, minority_interest=20 * M,
             diluted_shares=100 * M, revenue=[4000 * M, 4400 * M, 4840 * M])
 
 
@@ -110,7 +110,7 @@ def test_blocked_then_manual_entry_then_delete(vclient):
     assert v["status"] == "ok" and v["fcff0"] == pytest.approx(807.5 * M)
     cell = v["years"][-1]["values"]["interest_expense"]
     assert cell["manual"] and cell["note"] == "rapport annuel 2025, p. 42" and cell["value"] == "50000000"
-    assert "hors dettes locatives" in v["ev"]["debt_rule"]                       # US GAAP
+    assert "dettes locatives exclues" in v["ev"]["debt_rule"] and v["ev"]["debt"] == 500 * M     # US GAAP
     assert any(r["manual"] for r in vclient.get("/api/valuation").json()["rows"] if r["ticker"] == "USX")
     r = vclient.delete("/api/valuation/USX/fundamentals/2025-12-31/interest_expense")
     assert r.status_code == 200 and r.json()["status"] == "bloquee"
@@ -209,6 +209,28 @@ def test_fundamentals_cache_served_when_provider_down(provider):
     provider.down.add("USX")
     with pytest.raises(ProviderUnavailable):
         cp.fundamentals("USX")                                                   # ni fournisseur ni cache
+
+
+def test_fundamentals_cache_with_old_field_names_is_refetched(provider):
+    """Un cache écrit avant le renommage d'un champ (total_debt → financial_debt) est relu chez le fournisseur."""
+    import datetime as dt
+    from decimal import Decimal
+
+    from backend.app import models
+    from backend.app.db import Database
+    from backend.app.market import CachedProvider
+
+    db = Database("sqlite://")
+    db.create_all()
+    provider.fundamental_data = {"AAA.PA": {"currency": "EUR", "rows": rows(**BASE)}}
+    cp = CachedProvider(provider, db.sessionmaker, now=lambda: dt.datetime(2026, 10, 1, tzinfo=dt.timezone.utc))
+    cp.fundamentals("AAA.PA")
+    with db.sessionmaker() as s, s.begin():
+        s.add(models.FundamentalValue(ticker="AAA.PA", fiscal_end=dt.date(2025, 12, 31), field="total_debt",
+                                      value=Decimal("1")))
+    provider.calls.clear()
+    t = cp.fundamentals("AAA.PA").table
+    assert "FUND:AAA.PA" in provider.calls and "total_debt" not in t.columns
 
 
 def test_demo_capm_and_k_mode():

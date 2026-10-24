@@ -76,14 +76,14 @@ SIM_FUNDAMENTALS = {
         revenue=[366, 394, 383, 391, 416], ocf=[104, 122, 111, 118, 111], capex=[-11, -11, -11, -9, -13],
         sbc=[8, 9, 11, 12, 13], interest_expense=[2.6, 2.9, 3.9, None, None],
         pretax_income=[109, 119, 114, 123, 133], tax_provision=[14, 19, 17, 30, 21],
-        total_debt=[125, 132, 111, 107, 99], lease_liabilities=[11, 11.5, 12.8, None, None],
+        financial_debt=[125, 132, 111, 107, 99], lease_liabilities=[11, 11.5, 12.8, None, None],
         cash_sti=[63, 48, 62, 65, 55], minority_interest=None, diluted_shares=[5.07, 4.94, 4.81, 4.71, 4.64]),
     "MC.PA": dict(
         currency="EUR", sector="Consumer Cyclical", industry="Luxury Goods", fy_end="12-31",
         revenue=[64.2, 79.2, 86.2, 84.7, 80.8], ocf=[19.6, 17.8, 18.4, 18.9, 18.9],
         capex=[-2.6, -5.1, -7.8, -5.6, -4.7], sbc=None, interest_expense=[0.2, 0.4, 1.0, 1.2, 1.15],
         pretax_income=[17.4, 20.1, 21.6, 18.1, 16.7], tax_provision=[4.5, 5.4, 5.7, 5.2, 5.5],
-        total_debt=[34.0, 35.1, 38.9, 41.2, 36.7], lease_liabilities=[14.0, 15.4, 17.0, 18.3, 16.4],
+        financial_debt=[20.0, 19.7, 21.9, 22.9, 20.3], lease_liabilities=[14.0, 15.4, 17.0, 18.3, 16.4],
         cash_sti=[8.0, 7.3, 11.3, 13.6, 13.5], minority_interest=[1.4, 1.5, 1.7, 1.8, 1.5],
         diluted_shares=[0.601, 0.600, 0.598, 0.596, 0.594]),
     "ASML.AS": dict(
@@ -91,7 +91,7 @@ SIM_FUNDAMENTALS = {
         revenue=[18.6, 21.2, 27.6, 28.3, 32.7], ocf=[10.8, 8.5, 5.4, 11.2, 11.0],
         capex=[-0.9, -1.3, -2.2, -2.1, -1.8], sbc=[0.15, 0.17, 0.21, 0.40, 0.60],
         interest_expense=[0.06, 0.08, 0.10, 0.10, 0.10], pretax_income=[6.9, 6.8, 9.1, 9.0, 11.6],
-        tax_provision=[1.0, 1.2, 1.3, 1.4, 2.0], total_debt=[4.9, 4.7, 4.6, 4.7, 4.6],
+        tax_provision=[1.0, 1.2, 1.3, 1.4, 2.0], financial_debt=[4.7, 4.5, 4.3, 4.4, 4.3],
         lease_liabilities=[0.2, 0.2, 0.3, 0.3, 0.3], cash_sti=[7.6, 7.4, 7.0, 12.7, 12.7],
         minority_interest=[0.0, 0.0, 0.0, 0.0, 0.0], diluted_shares=[0.945, 0.940, 0.935, 0.932, 0.929]),
     "NVDA": dict(
@@ -99,7 +99,7 @@ SIM_FUNDAMENTALS = {
         revenue=[26.9, 27.0, 60.9, 130.5, 190.0], ocf=[9.1, 5.6, 28.1, 64.1, 100.0],
         capex=[-1.0, -1.8, -1.1, -3.2, -5.0], sbc=[2.0, 2.7, 3.5, 4.7, 6.0],
         interest_expense=[0.24, 0.26, 0.26, 0.25, 0.25], pretax_income=[9.9, 4.2, 33.8, 84.0, 125.0],
-        tax_provision=[0.2, -0.2, 4.1, 11.1, 19.0], total_debt=[11.8, 12.0, 11.1, 10.3, 10.0],
+        tax_provision=[0.2, -0.2, 4.1, 11.1, 19.0], financial_debt=[10.8, 10.9, 9.8, 8.5, 8.0],
         lease_liabilities=[1.0, 1.1, 1.3, 1.8, 2.0], cash_sti=[21.2, 13.3, 26.0, 43.2, 60.0],
         minority_interest=[0.0, 0.0, 0.0, 0.0, 0.0], diluted_shares=[5.62, 5.55, 5.50, 5.47, 5.44]),
 }

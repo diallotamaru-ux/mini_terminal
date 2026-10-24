@@ -530,7 +530,7 @@ class SimulationOut(BaseModel):
 # ---------------------------------------------------------------------------
 
 FundamentalField = Literal["revenue", "ocf", "capex", "fcf_reported", "sbc", "interest_expense", "pretax_income",
-                           "tax_provision", "total_debt", "lease_liabilities", "cash_sti", "minority_interest",
+                           "tax_provision", "financial_debt", "lease_liabilities", "cash_sti", "minority_interest",
                            "diluted_shares"]
 
 

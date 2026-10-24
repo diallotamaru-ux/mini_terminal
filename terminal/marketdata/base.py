@@ -65,8 +65,8 @@ FUNDAMENTAL_FIELDS = (
     "interest_expense",   # charge d'intérêts
     "pretax_income",      # résultat avant impôt
     "tax_provision",      # impôt sur les résultats
-    "total_debt",         # dette financière totale, dettes locatives comprises si publiées
-    "lease_liabilities",  # dettes locatives
+    "financial_debt",     # dette financière (emprunts, obligations, billets de trésorerie), HORS dettes locatives
+    "lease_liabilities",  # dettes locatives (contrats de location), à part
     "cash_sti",           # trésorerie et placements à court terme
     "minority_interest",  # intérêts minoritaires
     "diluted_shares",     # nombre moyen d'actions dilué de l'exercice

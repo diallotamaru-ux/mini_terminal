@@ -20,7 +20,7 @@ def table(**years):
 
 # Exemple complet : t = 200 / 800 = 25 %.
 FULL = dict(ocf=1000.0, capex=-200.0, interest_expense=50.0, pretax_income=800.0, tax_provision=200.0, sbc=30.0,
-            total_debt=600.0, lease_liabilities=100.0, cash_sti=300.0, minority_interest=20.0, diluted_shares=10.0,
+            financial_debt=500.0, lease_liabilities=100.0, cash_sti=300.0, minority_interest=20.0, diluted_shares=10.0,
             revenue=5000.0)
 
 
@@ -155,15 +155,18 @@ def test_enterprise_value_by_hand():
     # 100 × 10 + 600 − 300 + 20 = 1 320 (IFRS : dettes locatives comprises)
     assert (ifrs.market_cap, ifrs.debt, ifrs.ev) == (1000.0, 600.0, 1320.0) and not ifrs.warnings
     us = dcf.enterprise_value(t, price=100.0, fx=1.0, a=Assumptions(k=0.09, standard="us_gaap"))
-    assert (us.debt, us.ev) == (500.0, 1220.0) and "hors dettes locatives" in us.debt_rule
+    assert (us.debt, us.ev) == (500.0, 1220.0) and "dettes locatives exclues" in us.debt_rule
     usd = dcf.enterprise_value(t, price=100.0, fx=0.5, a=Assumptions(k=0.09))   # cotation ≠ devise des comptes
     assert usd.market_cap == 500.0 and usd.ev == 820.0
 
 
-def test_us_gaap_lease_not_separable_warns_without_guessing():
+def test_leases_needed_in_ifrs_only():
     t = table(y2025={**FULL, "lease_liabilities": np.nan})
-    ev = dcf.enterprise_value(t, 100.0, 1.0, Assumptions(k=0.09, standard="us_gaap"))
-    assert ev.debt == 600.0 and "non séparables" in ev.debt_rule and "dettes locatives" in ev.warnings[0]
+    us = dcf.enterprise_value(t, 100.0, 1.0, Assumptions(k=0.09, standard="us_gaap"))
+    assert us.debt == 500.0 and "exclues" in us.debt_rule and not us.warnings
+    with pytest.raises(Missing) as e:
+        dcf.enterprise_value(t, 100.0, 1.0, Assumptions(k=0.09, standard="ifrs"))
+    assert [i.field for i in e.value.items] == ["lease_liabilities"] and "IFRS" in e.value.items[0].remedy
 
 
 def test_fcff_and_ev_consistency_end_to_end():

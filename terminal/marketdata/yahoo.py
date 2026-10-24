@@ -20,15 +20,14 @@ from .base import Fundamentals, InstrumentInfo, MarketDataProvider, PriceSeries,
 SOURCE = "Yahoo Finance"
 
 # Correspondance explicite des lignes Yahoo (comptes annuels) vers nos champs. Une ligne
-# absente reste absente : aucun champ n'est déduit d'un autre.
+# absente reste absente. Seule la dette est construite (voir `_debt`).
 FUNDAMENTAL_ROWS = {
     "cashflow": {"Operating Cash Flow": "ocf", "Capital Expenditure": "capex",
                  "Free Cash Flow": "fcf_reported", "Stock Based Compensation": "sbc"},
     "income_stmt": {"Total Revenue": "revenue", "Interest Expense": "interest_expense",
                     "Pretax Income": "pretax_income", "Tax Provision": "tax_provision",
                     "Diluted Average Shares": "diluted_shares"},
-    "balance_sheet": {"Total Debt": "total_debt", "Capital Lease Obligations": "lease_liabilities",
-                      "Cash Cash Equivalents And Short Term Investments": "cash_sti",
+    "balance_sheet": {"Cash Cash Equivalents And Short Term Investments": "cash_sti",
                       "Minority Interest": "minority_interest"},
 }
 
@@ -154,5 +153,30 @@ class YahooProvider(MarketDataProvider):
             for label, f in mapping.items():
                 if label in df.index:
                     rows[f] = pd.to_numeric(df.loc[label], errors="coerce")
+        bs = statements["balance_sheet"]
+        if bs is not None and not bs.empty:
+            rows.update(_debt(bs))
         return Fundamentals(ticker, info.get("financialCurrency"), info.get("quoteType"), info.get("sector"),
                             info.get("industry"), fundamentals_frame(rows), SOURCE)
+
+
+def _debt(bs: pd.DataFrame) -> dict[str, pd.Series]:
+    """
+    Dette financière et dettes locatives, séparées. La ligne « Total Debt » de Yahoo n'est PAS
+    utilisée : selon la société, elle inclut les dettes locatives (LVMH, NVIDIA) ou non (Apple,
+    alors même qu'une ligne de locations est publiée). Recoupement documenté dans METHODE.md.
+        dette financière = « Long Term Debt » + dette courante,
+        dette courante   = « Current Debt », sinon « Current Debt And Capital Lease Obligation »
+                           − « Current Capital Lease Obligation » ;
+        dettes locatives = « Capital Lease Obligations », sinon long terme + courant.
+    Un terme absent rend le total manquant.
+    """
+    def row(label: str) -> pd.Series:
+        return pd.to_numeric(bs.loc[label], errors="coerce") if label in bs.index else \
+            pd.Series(float("nan"), index=bs.columns)
+
+    current = row("Current Debt").combine_first(
+        row("Current Debt And Capital Lease Obligation") - row("Current Capital Lease Obligation"))
+    leases = row("Capital Lease Obligations").combine_first(
+        row("Long Term Capital Lease Obligation") + row("Current Capital Lease Obligation"))
+    return {"financial_debt": row("Long Term Debt") + current, "lease_liabilities": leases}

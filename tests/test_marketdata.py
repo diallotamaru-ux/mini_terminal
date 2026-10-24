@@ -152,7 +152,12 @@ def yahoo(monkeypatch):
                         "cashflow": {"Operating Cash Flow": [120.0, 100.0], "Capital Expenditure": [-20.0, -15.0],
                                      "Free Cash Flow": [100.0, 85.0], "Unrelated Row": [1.0, 2.0]},
                         "income_stmt": {"Total Revenue": [1000.0, 900.0], "Interest Expense": [None, 4.0]},
-                        "balance_sheet": {"Total Debt": [300.0, 320.0]}}},
+                        "balance_sheet": {"Total Debt": [999.0, 999.0], "Long Term Debt": [250.0, 270.0],
+                                          "Current Debt": [50.0, None],
+                                          "Current Debt And Capital Lease Obligation": [None, 60.0],
+                                          "Current Capital Lease Obligation": [None, 10.0],
+                                          "Long Term Capital Lease Obligation": [None, 40.0],
+                                          "Capital Lease Obligations": [45.0, None]}}},
         "FUNDDOWN": {"currency": "EUR", "statements_error": True},
     }
     return YahooProvider()
@@ -293,6 +298,11 @@ def test_yahoo_fundamentals_mapping(yahoo):
     # Absent chez le fournisseur : manquant (NaN), jamais zéro, et jamais déduit d'un autre poste.
     assert pd.isna(t.loc["2025-12-31", "interest_expense"])
     assert t["sbc"].isna().all() and t["minority_interest"].isna().all()
+    # Dette financière construite hors locations ; « Total Debt » ignorée (périmètre variable selon la société).
+    assert t.loc["2025-12-31", "financial_debt"] == 300.0                     # 250 + 50
+    assert t.loc["2024-12-31", "financial_debt"] == 320.0                     # 270 + (60 − 10)
+    assert t.loc["2025-12-31", "lease_liabilities"] == 45.0                   # total publié
+    assert t.loc["2024-12-31", "lease_liabilities"] == 50.0                   # 40 + 10
 
 
 def test_yahoo_fundamentals_errors(yahoo):

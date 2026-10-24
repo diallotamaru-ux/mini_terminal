@@ -124,7 +124,10 @@ class CachedProvider(_SeriesCache, MarketDataProvider):
         with self.sessions() as s:
             head = s.get(FundamentalCache, ticker)
             same = head is not None and head.provider == self.inner.name
-            if same and self.now() - _utc(head.fetched_at) < self.fundamentals_ttl:
+            # Un cache écrit avec d'anciens noms de champs est périmé, quel que soit son âge.
+            stale_fields = s.scalar(select(FundamentalValue.field).where(
+                FundamentalValue.ticker == ticker, FundamentalValue.field.not_in(FUNDAMENTAL_FIELDS)).limit(1))
+            if same and stale_fields is None and self.now() - _utc(head.fetched_at) < self.fundamentals_ttl:
                 return self._read_fundamentals(s, head)
             try:
                 f = self.inner.fundamentals(ticker)

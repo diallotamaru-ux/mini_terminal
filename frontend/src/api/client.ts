@@ -8,6 +8,10 @@ import type {
   Listing,
   AnalysisSettings,
   Diversification,
+  FundamentalField,
+  ProfileIn,
+  Valuation,
+  ValuationSummary,
   Performance,
   Period,
   Risk,
@@ -84,6 +88,14 @@ export const api = {
     request<Diversification>(`/api/diversification?period=${period}&partial=${partial}`),
   simulate: (b: { period: Period; ticker: string; pct: number; mode: string }) =>
     request<Simulation>("/api/diversification/simulate", json("POST", b)),
+  valuationSummary: () => request<ValuationSummary>("/api/valuation"),
+  valuation: (ticker: string) => request<Valuation>(`/api/valuation/${encodeURIComponent(ticker)}`),
+  saveProfile: (ticker: string, b: ProfileIn) =>
+    request<Valuation>(`/api/valuation/${encodeURIComponent(ticker)}/profile`, json("PUT", b)),
+  saveFundamental: (ticker: string, b: { fiscal_end: string; field: FundamentalField; value: string; note: string | null }) =>
+    request<Valuation>(`/api/valuation/${encodeURIComponent(ticker)}/fundamentals`, json("PUT", b)),
+  deleteFundamental: (ticker: string, fiscalEnd: string, field: string) =>
+    request<Valuation>(`/api/valuation/${encodeURIComponent(ticker)}/fundamentals/${fiscalEnd}/${field}`, { method: "DELETE" }),
   settings: () => request<{ settings: AnalysisSettings; warnings: string[] }>("/api/settings"),
   saveSettings: (s: AnalysisSettings) =>
     request<{ settings: AnalysisSettings; warnings: string[] }>("/api/settings", json("PUT", s)),
@@ -105,6 +117,22 @@ export const useRisk = (period: Period, reference: number) =>
 export const useDiversification = (period: Period, partial: string) =>
   useQuery({ queryKey: ["portfolio", "diversification", period, partial], queryFn: () => api.diversification(period, partial),
     placeholderData: keepPreviousData, retry: false });
+export const useValuationSummary = () =>
+  useQuery({ queryKey: ["portfolio", "valuation"], queryFn: api.valuationSummary, retry: false });
+export const useValuation = (ticker: string) =>
+  useQuery({ queryKey: ["portfolio", "valuation", ticker], queryFn: () => api.valuation(ticker), retry: false });
+
+/** Écriture sur une fiche (hypothèses, saisie manuelle) : la réponse est la fiche à jour. */
+export function useValuationMutation<A>(ticker: string, fn: (a: A) => Promise<Valuation>) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: (v) => {
+      qc.setQueryData(["portfolio", "valuation", ticker], v);
+      qc.invalidateQueries({ queryKey: ["portfolio", "valuation"], exact: true });
+    },
+  });
+}
 export const useSettings = () => useQuery({ queryKey: ["settings"], queryFn: api.settings });
 
 /** Mutation qui invalide tout ce qui dépend du grand livre. */

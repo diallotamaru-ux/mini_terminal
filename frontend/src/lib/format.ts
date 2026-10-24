@@ -70,3 +70,37 @@ export const TX_LABEL = {
   RETRAIT: "Retrait",
   FRAIS: "Frais",
 } as const;
+
+const SYMBOL: Record<string, string> = { EUR: "€", USD: "$", GBP: "£", CHF: "CHF", JPY: "¥" };
+
+/** Grand montant des comptes annuels : « 14,21 Md€ », « 807,5 M$ ». null -> « manquant ». */
+export function big(v: string | number | null | undefined, currency?: string | null): string {
+  if (v === null || v === undefined || v === "") return MISSING;
+  const n = Number(v);
+  if (!Number.isFinite(n)) return MISSING;
+  const a = Math.abs(n);
+  const [x, unit] = a >= 1e9 ? [n / 1e9, " Md"] : a >= 1e6 ? [n / 1e6, " M"] : a >= 1e3 ? [n / 1e3, " k"] : [n, " "];
+  const digits = Math.abs(x) >= 100 ? 1 : 2;
+  const s = nf(digits, digits).format(Math.abs(x));
+  const cur = currency ? (SYMBOL[currency] ?? ` ${currency}`) : "";
+  return `${x < 0 ? "−" : ""}${s}${unit}${cur}`.replace("  ", " ").trimEnd();
+}
+
+/** Nombre décimal sans unité (« 1,20 »), « manquant » si null. */
+export function dec(v: number | null | undefined, digits = 2): string {
+  if (v === null || v === undefined || !Number.isFinite(v)) return MISSING;
+  const s = nf(digits, digits).format(Math.abs(v));
+  return v < 0 ? `−${s}` : s;
+}
+
+/** Déplace la virgule d'une saisie décimale sans passer par un flottant : scaleDecimal("1,15", 9) = "1150000000". */
+export function scaleDecimal(input: string, zeros: number): string | null {
+  const t = input.trim().replace(/\s/g, "").replace(",", ".");
+  const m = /^(-?)(\d*)(?:\.(\d*))?$/.exec(t);
+  if (!m || (!m[2] && !m[3])) return null;
+  const [, sign, ip, fp = ""] = m;
+  const digits = (ip || "0") + fp.padEnd(zeros, "0");
+  const cut = (ip || "0").length + zeros;
+  const out = `${digits.slice(0, cut)}${digits.length > cut ? "." + digits.slice(cut) : ""}`.replace(/^0+(?=\d)/, "");
+  return sign + out;
+}

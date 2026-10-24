@@ -302,6 +302,13 @@ export interface AnalysisSettings {
   rf_fixed_rate: string | null;
   rolling_window: number;
   covariance: "lw_cc" | "lw_id" | "empirique";
+  k_mode: "devise" | "medaf";
+  erp: string;
+  k_manual: Record<string, string>;
+  g_term: string;
+  horizon: number;
+  fcf_years: number;
+  sbc_deduct: boolean;
 }
 
 // --- Phase 3 : diversification -------------------------------------------------
@@ -370,4 +377,163 @@ export interface Simulation {
   estimator_label: string;
   notes: string[];
   disclaimer: string;
+}
+
+// --- Phase 4 : valorisation (DCF inversé) ---------------------------------------
+
+export type FundamentalField =
+  | "revenue" | "ocf" | "capex" | "fcf_reported" | "sbc" | "interest_expense" | "pretax_income" | "tax_provision"
+  | "total_debt" | "lease_liabilities" | "cash_sti" | "minority_interest" | "diluted_shares";
+
+export interface FundamentalCell {
+  value: string | null;
+  manual: boolean;
+  note: string | null;
+  entered_at: string | null;
+}
+
+export interface FundamentalYear {
+  fiscal_end: string;
+  values: Record<FundamentalField, FundamentalCell>;
+  fcff: number | null;
+}
+
+export interface MissingItem {
+  fiscal_end: string | null;
+  field: string;
+  label: string;
+  remedy: string;
+}
+
+export interface KOut {
+  k: number | null;
+  label: string;
+  detail: string;
+  g: number | null;
+  error: string | null;
+}
+
+export interface ValuationProfile {
+  standard: "us_gaap" | "ifrs";
+  standard_label: string;
+  standard_proposed: boolean;
+  interest_class: "exploitation" | "financement";
+  financial: boolean | null;
+  k: number | null;
+  horizon: number;
+  g_term: number;
+  fcf_years: number;
+  sbc_deduct: boolean;
+  statutory_tax: number | null;
+  accept_interest_approx: boolean;
+  accept_minority_approx: boolean;
+  custom: string[];
+}
+
+export interface EvOut {
+  price: number;
+  price_date: string | null;
+  price_currency: string;
+  fx: number;
+  accounts_currency: string;
+  shares: number;
+  market_cap: number;
+  debt: number;
+  debt_rule: string;
+  cash: number;
+  minority: number | null;
+  ev: number;
+  balance_date: string;
+}
+
+export interface GrowthOut {
+  value: number | null;
+  status: "ok" | "non_significatif" | "manquant";
+  years: number;
+  n_points: number;
+  start: string | null;
+  end: string | null;
+}
+
+export interface SensiCell {
+  k: number;
+  g_term: number;
+  g: number | null;
+  reason: string | null;
+}
+
+export type ValuationStatus = "ok" | "exclue" | "bloquee" | "impossible";
+
+export interface Valuation {
+  meta: Meta;
+  ticker: string;
+  name: string;
+  isin: string | null;
+  asset_class: string;
+  status: ValuationStatus;
+  reason: string | null;
+  missing: MissingItem[];
+  sector: string | null;
+  industry: string | null;
+  fundamentals_source: string | null;
+  fundamentals_fetched_at: string | null;
+  fundamentals_simulated: boolean;
+  accounts_currency: string | null;
+  years: FundamentalYear[];
+  profile: ValuationProfile | null;
+  fcff_rule: string | null;
+  fcff0: number | null;
+  fcf_window: string[];
+  tax_rate: number | null;
+  tax_source: string | null;
+  ev: EvOut | null;
+  k_used: KOut | null;
+  k_common: KOut | null;
+  k_capm: KOut | null;
+  g: number | null;
+  sentence: string | null;
+  growth_fcff: GrowthOut | null;
+  growth_revenue: GrowthOut | null;
+  sensitivity: SensiCell[][];
+  prices: { time: string; value: number }[];
+  warnings: string[];
+}
+
+export interface ValuationRow {
+  ticker: string;
+  name: string;
+  status: ValuationStatus;
+  reason: string | null;
+  g: number | null;
+  k: number | null;
+  k_label: string | null;
+  growth_fcff: GrowthOut | null;
+  growth_revenue: GrowthOut | null;
+  ev_multiple: number | null;
+  balance_date: string | null;
+  price_date: string | null;
+  manual: boolean;
+  approximations: boolean;
+}
+
+export interface ValuationSummary {
+  meta: Meta;
+  horizon: number;
+  g_term: number;
+  rows: ValuationRow[];
+  others: ValuationRow[];
+}
+
+export interface ProfileIn {
+  standard?: "us_gaap" | "ifrs" | null;
+  interest_class?: "exploitation" | "financement" | null;
+  financial?: boolean | null;
+  k?: string | null;
+  horizon?: number | null;
+  g_term?: string | null;
+  fcf_years?: number | null;
+  sbc_deduct?: boolean | null;
+  statutory_tax?: string | null;
+  accept_interest_approx?: boolean;
+  accept_minority_approx?: boolean;
 }

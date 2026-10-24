@@ -45,17 +45,38 @@ Prérequis : Python 3.12+, Node.js 20.19+ (testé avec 26.9). Docker est faculta
 
 ### Développement, sans Docker
 
+Installation, une seule fois :
+
 ```powershell
 python -m venv .venv
 .venv\Scripts\python -m pip install -r requirements-dev.txt
 cd frontend; npm install; cd ..
-
-.\scripts\dev.ps1            # données réelles (Yahoo Finance)
-.\scripts\dev.ps1 -Demo      # données simulées, base séparée pré-remplie
 ```
 
-Le script ouvre deux fenêtres : l'API sur http://127.0.0.1:8000 (documentation interactive sur `/docs`) et
-l'interface sur **http://localhost:5173**. À la main, sous macOS ou Linux :
+Lancement sous Windows, par double-clic à la racine du projet :
+
+| Fichier | Effet |
+|---|---|
+| `Lancer_Demo.bat` | données simulées, base séparée pré-remplie |
+| `Lancer_Reel.bat` | vos données (base `data/mini_terminal.db`, cours Yahoo Finance) |
+| `Arreter.bat` | arrête l'API et l'interface, libère les ports 8000 et 5173 |
+
+Le lancement ouvre deux fenêtres, l'API (« Mini-terminal : API », sur http://127.0.0.1:8000, documentation interactive
+sur `/docs`) et l'interface (`npm run dev`), attend qu'elles répondent (40 s au plus), puis ouvre
+**http://localhost:5173** dans le navigateur. En cas d'échec, la fenêtre reste ouverte avec un message lisible.
+`Arreter.bat` n'arrête que les processus de ce projet : un autre programme sur ces ports est signalé, pas arrêté.
+
+Alternative depuis PowerShell, à la racine du projet :
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\dev.ps1          # données réelles
+powershell -ExecutionPolicy Bypass -File .\scripts\dev.ps1 -Demo    # données simulées
+```
+
+Windows interdit par défaut l'exécution des scripts PowerShell : `.\scripts\dev.ps1` seul est refusé dans une fenêtre
+neuve. `-ExecutionPolicy Bypass` lève cette interdiction pour ce seul lancement, sans modifier le réglage du système.
+
+À la main, sous macOS ou Linux :
 
 ```bash
 .venv/bin/python -m uvicorn backend.app.main:create_app --factory --reload   # MT_DEMO=1 pour la démo

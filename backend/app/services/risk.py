@@ -48,7 +48,7 @@ def account_returns(values: pd.Series, inflows: pd.Series, outflows: pd.Series, 
     """TWR quotidien en jours ouvrés sur la grille. Avant le premier jour actif : hors série."""
     v, i, o = risk.slice_for_period(values, inflows, outflows, base)
     r, _ = performance.daily_returns(v, i, o)
-    bd = risk.to_business_days(r)
+    bd = risk.to_business_days(r, end=grid[-1].date() if len(grid) else None)
     start = pd.Timestamp(bd.index[0]) if len(bd) else None
     if start is None:
         return pd.Series(dtype=float), None
@@ -148,7 +148,7 @@ def risk_out(snap: Snapshot, provider: MarketDataProvider, rates: RateProvider, 
     if first is None:
         raise risk.PeriodError("Aucun capital investi : rien à analyser.")
     base = risk.period_base(period, as_of, first)
-    grid = pd.bdate_range(base + dt.timedelta(days=1), as_of)
+    grid = risk.business_grid(base, as_of)
     span = (as_of - base).days
     warnings: list[str] = []
     ref_sources: list = []

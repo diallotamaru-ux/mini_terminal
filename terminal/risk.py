@@ -126,13 +126,31 @@ def _compound(x: pd.Series) -> float:
     return float(np.prod(1.0 + a) - 1.0)          # NaN si un élément est NaN : jamais ignoré
 
 
-def to_business_days(returns: pd.Series) -> pd.Series:
-    """Rendements calendaires -> jours ouvrés : samedi et dimanche composés dans le lundi suivant."""
+def business_grid(base: date, as_of: date) -> pd.DatetimeIndex:
+    """
+    Jours ouvrés de ]base, as_of]. Si `as_of` tombe un week-end, il est ajouté
+    comme dernier point : il recevra les rendements du week-end en cours, qui
+    sinon seraient composés dans un lundi pas encore arrivé, et perdus.
+    """
+    grid = pd.bdate_range(base + timedelta(days=1), as_of)
+    end = pd.Timestamp(as_of)
+    if end.day_of_week >= 5 and end > pd.Timestamp(base):
+        grid = grid.append(pd.DatetimeIndex([end]))
+    return grid
+
+
+def to_business_days(returns: pd.Series, end: date | None = None) -> pd.Series:
+    """
+    Rendements calendaires -> jours ouvrés : samedi et dimanche composés dans le
+    lundi suivant ; au-delà de `end` (date de valorisation un week-end), dans `end`.
+    """
     if returns.empty:
         return returns
     idx = pd.DatetimeIndex(returns.index)
     shift = np.where(idx.day_of_week == 5, 2, np.where(idx.day_of_week == 6, 1, 0))
     key = idx + pd.to_timedelta(shift, unit="D")
+    if end is not None:
+        key = key.where(key <= pd.Timestamp(end), pd.Timestamp(end))
     return returns.groupby(key).agg(_compound).rename(returns.name)
 
 

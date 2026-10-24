@@ -271,3 +271,19 @@ def test_sharpe_ci_hac_edge_cases_and_lags():
     assert m.newey_west_lags(756) == 6 and m.newey_west_lags(156) == 4
     assert all(np.isnan(v) for v in m.sharpe_ci_hac(pd.Series([0.01, 0.02])))
     assert all(np.isnan(v) for v in m.sharpe_ci_hac(pd.Series([0.01] * 10)))
+
+
+def test_weekend_valuation_date_keeps_weekend_returns():
+    # Valorisation le samedi 24/10/2026. Sans correction, le rendement du samedi serait composé dans
+    # le lundi 26/10, hors de la période, et perdu.
+    grid = risk.business_grid(date(2026, 10, 19), date(2026, 10, 24))
+    assert grid.tolist() == [pd.Timestamp(d) for d in
+                             ["2026-10-20", "2026-10-21", "2026-10-22", "2026-10-23", "2026-10-24"]]
+    assert risk.business_grid(date(2026, 10, 19), date(2026, 10, 23))[-1] == pd.Timestamp("2026-10-23")
+    r = pd.Series([0.01, 0.02], index=pd.DatetimeIndex(["2026-10-23", "2026-10-24"]))
+    bd = risk.to_business_days(r, end=date(2026, 10, 24))
+    assert bd.index.tolist() == [pd.Timestamp("2026-10-23"), pd.Timestamp("2026-10-24")]
+    assert bd.tolist() == pytest.approx([0.01, 0.02])
+    # Dimanche : samedi et dimanche composés dans le point du dimanche.
+    r = pd.Series([0.01, 0.02], index=pd.DatetimeIndex(["2026-10-24", "2026-10-25"]))
+    assert risk.to_business_days(r, end=date(2026, 10, 25)).iloc[0] == pytest.approx(1.01 * 1.02 - 1)

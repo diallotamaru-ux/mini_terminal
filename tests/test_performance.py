@@ -63,6 +63,29 @@ def test_twr_missing_value_is_not_zero():
     assert any("manquante" in w for w in res.warnings)
 
 
+def test_twr_missing_first_value_blocks_instead_of_excluding_the_day():
+    """Revue : valeur et apport du premier jour non valorisables (taux de change manquant). Le jour suivant a une
+    base NaN : il doit donner un rendement NaN et bloquer le TWR, pas être exclu comme « sans capital »."""
+    idx = pd.date_range("2024-01-01", periods=4, freq="D")
+    res = pf.twr(s([np.nan, np.nan, 1100, 1210], idx), inflows=s([np.nan, 0, 0, 0], idx))
+    assert res.total is None and any("manquante" in w for w in res.warnings)
+    assert not any("sans capital" in w for w in res.warnings)
+
+
+def test_twr_period_with_missing_base_value_is_none():
+    """Sous-période dont la valeur à la date de base est manquante (apport initial NaN) : TWR None, pas 0."""
+    res = pf.twr(s([1000, 1010, 1020]), inflows=s([np.nan, 0, 0]))
+    assert res.total is None
+
+
+def test_mwr_missing_first_inflow_blocks():
+    """Revue : premier apport manquant. Avant correction, il était sauté et le TRI valait +1 121 %/an, sans message."""
+    idx = pd.date_range("2024-01-01", periods=4, freq="D")
+    res = pf.mwr(s([np.nan, np.nan, 1100, 1210], idx), inflows=s([np.nan, 0, 0, 0], idx))
+    assert res.rate is None and "manquant" in res.warnings[0]
+    assert res.start == date(2024, 1, 1)
+
+
 def test_twr_flow_without_capital_is_flagged():
     # Dividende reçu après la vente de toute la position (convention titres seuls) :
     # aucun capital la veille, le jour est exclu et signalé.

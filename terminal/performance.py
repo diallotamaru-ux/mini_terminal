@@ -61,12 +61,13 @@ def daily_returns(values: pd.Series, inflows: pd.Series | None = None,
     num = values + o
 
     warnings: list[str] = []
-    active = base.abs() > _EPS
+    # Base manquante (valeur de la veille ou apport non valorisable) : jour conservé, rendement NaN. Sans ce
+    # `| isna()`, « NaN > eps » vaut False et le jour serait exclu comme « sans capital », en silence.
+    active = (base.abs() > _EPS) | base.isna()
     orphan = (~active) & (num.abs() > _EPS)
     for d in idx[orphan.fillna(False).to_numpy(dtype=bool)]:
         warnings.append(f"{pd.Timestamp(d).date().isoformat()} : flux ou valeur sans capital investi "
                         f"la veille, jour exclu du TWR.")
-    active = active.fillna(True)        # base NaN -> rendement NaN, conservé
     r = (num[active] / base[active]) - 1.0
     return r.rename("r"), warnings
 
@@ -170,7 +171,8 @@ def mwr(values: pd.Series, inflows: pd.Series | None = None,
     idx = values.index
     i = (inflows if inflows is not None else pd.Series(0.0, index=idx)).reindex(idx, fill_value=0.0)
     o = (outflows if outflows is not None else pd.Series(0.0, index=idx)).reindex(idx, fill_value=0.0)
-    active = (i.abs() > _EPS) | (o.abs() > _EPS) | (values.abs() > _EPS)
+    # Un flux manquant compte comme un jour actif : il doit bloquer le calcul, pas être sauté.
+    active = (i.abs() > _EPS) | (o.abs() > _EPS) | (values.abs() > _EPS) | i.isna() | o.isna()
     if not active.any():
         return MwrResult(None, False, None, None, 0, ["Aucun flux."])
     first = idx[active.to_numpy()][0]

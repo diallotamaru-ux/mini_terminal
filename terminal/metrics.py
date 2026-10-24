@@ -201,7 +201,19 @@ def portfolio_returns(returns: pd.DataFrame, weights: pd.Series) -> pd.Series:
     return (returns * w).sum(axis=1).rename("Portefeuille")
 
 
-def pca_diversification(returns: pd.DataFrame, weights: pd.Series) -> dict:
+def _cov_matrix(returns: pd.DataFrame, cov: pd.DataFrame | None) -> np.ndarray:
+    """
+    Covariance utilisée par les mesures de diversification : celle fournie (par
+    exemple contractée), réordonnée sur les colonnes de `returns`, ou à défaut la
+    covariance empirique des rendements.
+    """
+    if cov is None:
+        return returns.cov(ddof=1).values
+    return cov.loc[returns.columns, returns.columns].values
+
+
+def pca_diversification(returns: pd.DataFrame, weights: pd.Series,
+                        cov: pd.DataFrame | None = None) -> dict:
     """
     Nombre effectif de paris (ENB), version ACP de Meucci (2009).
 
@@ -216,7 +228,7 @@ def pca_diversification(returns: pd.DataFrame, weights: pd.Series) -> dict:
     cols = returns.columns
     w = weights.reindex(cols).fillna(0.0).values
     w = w / w.sum()
-    cov = returns.cov(ddof=1).values
+    cov = _cov_matrix(returns, cov)
     eigval, eigvec = np.linalg.eigh(cov)
     order = np.argsort(eigval)[::-1]
     eigval = np.clip(eigval[order], 0.0, None)
@@ -284,7 +296,8 @@ def minimum_torsion_matrix(cov: np.ndarray) -> np.ndarray:
     return np.diag(sigma) @ x @ np.diag(1.0 / sigma)
 
 
-def minimum_torsion_diversification(returns: pd.DataFrame, weights: pd.Series) -> dict:
+def minimum_torsion_diversification(returns: pd.DataFrame, weights: pd.Series,
+                                    cov: pd.DataFrame | None = None) -> dict:
     """
     ENB par torsion minimale.
 
@@ -299,7 +312,7 @@ def minimum_torsion_diversification(returns: pd.DataFrame, weights: pd.Series) -
     cols = returns.columns
     w = weights.reindex(cols).fillna(0.0).values
     w = w / w.sum()
-    cov = returns.cov(ddof=1).values
+    cov = _cov_matrix(returns, cov)
     t = minimum_torsion_matrix(cov)
     b = np.linalg.solve(t.T, w)
     p = b * (t @ cov @ w) / float(w @ cov @ w)
@@ -310,15 +323,15 @@ def minimum_torsion_diversification(returns: pd.DataFrame, weights: pd.Series) -
     return {"enb": enb, "contributions": pd.Series(p, index=cols), "torsion": t}
 
 
-def risk_contributions(returns: pd.DataFrame, weights: pd.Series) -> pd.Series:
+def risk_contributions(returns: pd.DataFrame, weights: pd.Series,
+                       cov: pd.DataFrame | None = None) -> pd.Series:
     """
     Contribution de chaque actif à la variance du portefeuille (Euler) :
     RC_i = w_i (Sigma w)_i / (w^T Sigma w),  sum_i RC_i = 1.
     """
     w = weights.reindex(returns.columns).fillna(0.0)
     w = w / w.sum()
-    cov = returns.cov(ddof=1)
-    marginal = cov.values @ w.values
+    marginal = _cov_matrix(returns, cov) @ w.values
     var_p = float(w.values @ marginal)
     return pd.Series(w.values * marginal / var_p, index=returns.columns)
 

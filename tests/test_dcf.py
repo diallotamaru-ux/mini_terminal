@@ -321,3 +321,21 @@ def test_multiple_by_hand():
     # g = g_term = 2 %, k = 9 % : rente croissante, multiple = 1,02 / 0,07 = 14,571…
     assert dcf.implied_multiple(0.02, 0.09, 10, 0.02) == pytest.approx(1.02 / 0.07, rel=1e-12)
 
+
+def test_fcf_window_with_missing_year_is_not_averaged():
+    """Revue : exercices 2021, 2022, 2024, 2025 (2023 absent). La moyenne portait sur 2022, 2024 et 2025."""
+    t = table(y2021=FULL, y2022=FULL, y2024=FULL, y2025=FULL)
+    with pytest.raises(Missing) as e:
+        dcf.fcff(t, Assumptions(k=0.09, fcf_years=3))
+    [item] = e.value.items
+    assert item.fiscal_end == pd.Timestamp("2023-12-31") and "exercice absent" in item.remedy
+    assert dcf.fcff(t, Assumptions(k=0.09, fcf_years=2)).window == [pd.Timestamp("2024-12-31"),
+                                                                      pd.Timestamp("2025-12-31")]
+
+
+def test_fcf_window_tolerates_52_53_week_years():
+    """Clôtures à date glissante (NVIDIA : fin janvier, 52 ou 53 semaines) : pas de faux trou."""
+    rows = {pd.Timestamp(d): FULL for d in ("2023-01-29", "2024-01-28", "2025-01-26", "2026-01-25")}
+    t = fundamentals_frame({f: pd.Series({d: v[f] for d, v in rows.items()}, dtype=float) for f in FULL})
+    assert len(dcf.fcff(t, Assumptions(k=0.09, fcf_years=3)).window) == 3
+

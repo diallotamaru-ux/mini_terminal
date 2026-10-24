@@ -206,6 +206,14 @@ def beta(provider: MarketDataProvider, settings: AnalysisSettings, t: Title, d: 
     return float(b) if np.isfinite(b) else None
 
 
+def average_debt(hist: pd.Series) -> float | None:
+    """Moyenne des deux DERNIERS bilans, s'ils sont connus et consécutifs ; sinon manquante (kd non calculable)."""
+    last = hist.iloc[-2:]
+    if len(last) < 2 or last.isna().any() or not 300 <= (last.index[1] - last.index[0]).days <= 430:
+        return None
+    return float(last.mean())
+
+
 def k_capm(rf: float | None, settings: AnalysisSettings, b: float | None, ev: dcf.EnterpriseValue | None,
            table: pd.DataFrame, a: dcf.Assumptions, tax: float | None) -> schemas.KOut:
     label = "MEDAF"
@@ -216,7 +224,7 @@ def k_capm(rf: float | None, settings: AnalysisSettings, b: float | None, ev: dc
     debt = ev.debt
     # Dette moyenne des deux derniers bilans, selon la même règle que la VE.
     hist = table["financial_debt"] + (table["lease_liabilities"] if a.standard == "ifrs" else 0.0)
-    avg = float(hist.dropna().iloc[-2:].mean()) if hist.notna().any() else None
+    avg = average_debt(hist)
     interest = table["interest_expense"].iloc[-1] if len(table) else np.nan
     c = dcf.capm_k(rf, float(settings.erp), b, ev.market_cap, debt,
                    None if pd.isna(interest) else float(interest), avg, tax)

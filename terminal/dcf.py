@@ -165,6 +165,13 @@ def fcff(table: pd.DataFrame, a: Assumptions) -> FcffResult:
         raise DCFError("historique", f"{len(years)} exercice(s) disponible(s), {a.fcf_years} demandé(s) pour le "
                                      "FCF de départ : réduisez le lissage ou saisissez des exercices plus anciens.")
     window = years[-a.fcf_years:]
+    # Une fenêtre trouée (exercice absent chez le fournisseur) n'est pas moyennée : on nomme l'exercice manquant.
+    # Tolérance : exercices de 52 ou 53 semaines, clôtures décalées de quelques jours (300 à 430 jours d'écart).
+    holes = [MissingItem(prev + pd.DateOffset(years=1), "ocf",
+                         "exercice absent chez le fournisseur : saisir ses comptes, ou réduire le lissage")
+             for prev, nxt in zip(window, window[1:]) if not 300 <= (nxt - prev).days <= 430]
+    if holes:
+        raise Missing(holes)
     # US GAAP : intérêts versés toujours en exploitation. IFRS : selon le choix publié par la société.
     add_interest = a.standard == "us_gaap" or a.interest_class == "exploitation"
     warnings: list[str] = []

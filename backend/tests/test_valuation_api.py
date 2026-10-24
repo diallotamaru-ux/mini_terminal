@@ -9,6 +9,7 @@ BBB.PA : ETF -> exclu.
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -262,3 +263,17 @@ def test_demo_capm_and_k_mode():
         rows = c.get("/api/valuation").json()["rows"]
         assert all(r["k_label"].startswith("commun") for r in rows)          # le récapitulatif reste au k commun
         assert [r["g"] for r in rows] == sorted((r["g"] for r in rows), reverse=True)
+
+
+def test_average_debt_requires_two_consecutive_balances():
+    """Revue : la dette moyenne du kd pouvait mêler deux bilans non consécutifs, ou un seul bilan."""
+    from backend.app.services.valuation import average_debt
+
+    def h(values: dict) -> pd.Series:
+        return pd.Series(values, dtype=float).rename(index=pd.Timestamp)
+
+    assert average_debt(h({"2024-12-31": 100.0, "2025-12-31": 200.0})) == 150.0
+    assert average_debt(h({"2023-12-31": 100.0, "2024-12-31": np.nan, "2025-12-31": 200.0})) is None
+    assert average_debt(h({"2023-12-31": 100.0, "2025-12-31": 200.0})) is None          # 2024 absent
+    assert average_debt(h({"2025-12-31": 200.0})) is None
+

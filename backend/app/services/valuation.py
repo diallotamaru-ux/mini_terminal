@@ -182,7 +182,7 @@ def k_common(rates: RateProvider, settings: AnalysisSettings, cur: str, d: dt.da
                             error=f"Aucun taux long {cur} récent : saisissez un k pour {cur} dans les réglages."), None
     rf = v[1] / 100
     detail = (f"taux d'État à 10 ans {_pct(rf)} ({ps.source}, au {_fr_date(v[0])}) + prime de risque "
-              f"{_pct(erp, 1)}, β = 1")
+              f"{_pct(erp, 2)}, β = 1")
     return schemas.KOut(k=_r(dcf.common_k(rf, erp)), label=f"commun {cur}", detail=detail), rf
 
 

@@ -443,14 +443,14 @@ k = 9,16 %, N = 10, $g_{term}$ = 2 %, rémunération en actions déduite, approx
 | Multiple VE / FCF de départ | 57,2 (rendement du flux : 1,75 %) |
 | g implicite | 20,7 % par an pendant 10 ans |
 | sans déduire la rémunération en actions | multiple 50,6, g 19,1 % |
+| Charge d'intérêts | publiée par Yahoo jusqu'en 2023 (3,93 Md$), manquante en 2024 et 2025 |
 | avec une prime de 5 % (k = 9,96 %) | g 22,6 % |
 
 Lecture : le calcul est juste (recoupé deux fois), mais l'hypothèse qu'il révèle est très éloignée de l'historique.
 20,7 % par an pendant 10 ans multiplie le flux par 6,6, à environ 600 Md$ en 2035, soit 1,4 fois le chiffre d'affaires
 de 2025 (416 Md$), alors que le FCFF n'a pas progressé sur 4 exercices et le chiffre d'affaires de 3 % par an environ.
 L'approximation OCF − capex biaise g vers le haut, mais faiblement : en reprenant la dernière charge publiée
-(3,9 Md$ en 2023, soit 3,2 Md$ après impôt) comme ordre de grandeur, g passe de 20,7 % à 20,3 %, de l'ordre
-d'un demi-point de g. Le prix ne s'explique donc, dans ce modèle, que par une croissance future bien supérieure au
+(3,9 Md$ en 2023, soit 3,2 Md$ après impôt) comme ordre de grandeur, g passe de 20,7 % à 20,3 %. Le prix ne s'explique donc, dans ce modèle, que par une croissance future bien supérieure au
 passé, ou par un coût du capital nettement plus bas que 9 %. C'est une lecture du prix, pas un avis sur le titre.
 
 ### Limites

@@ -44,19 +44,21 @@ def _floats(s: pd.Series, digits: int = 4) -> list[float | None]:
 # ---------------------------------------------------------------------------
 
 def account_returns(values: pd.Series, inflows: pd.Series, outflows: pd.Series, base: dt.date,
-                    grid: pd.DatetimeIndex) -> tuple[pd.Series, dt.date | None]:
-    """TWR quotidien en jours ouvrés sur la grille. Avant le premier jour actif : hors série."""
+                    grid: pd.DatetimeIndex) -> tuple[pd.Series, dt.date | None, pd.DatetimeIndex]:
+    """
+    TWR quotidien en jours ouvrés, sur les seuls jours où du capital est investi. Les jours sans capital (avant le
+    premier apport, après un retrait total) sont HORS série : les compter comme des rendements nuls diluerait la
+    volatilité et le Sharpe. Ils sont renvoyés à part (`idle`), pour les courbes. Un rendement manquant reste NaN.
+    """
     v, i, o = risk.slice_for_period(values, inflows, outflows, base)
     r, _ = performance.daily_returns(v, i, o)
     bd = risk.to_business_days(r, end=grid[-1].date() if len(grid) else None)
     start = pd.Timestamp(bd.index[0]) if len(bd) else None
     if start is None:
-        return pd.Series(dtype=float), None
+        return pd.Series(dtype=float), None, pd.DatetimeIndex([])
     g = grid[grid >= start]
-    out = pd.Series(0.0, index=g)              # jour sans capital investi : rendement nul
-    common = bd.index.intersection(g)
-    out.loc[common] = bd.loc[common]
-    return out, start.date()
+    active = bd.index.intersection(g)
+    return bd.loc[active], start.date(), g.difference(active)
 
 
 def reference_returns(provider: MarketDataProvider, ref: Reference, base: dt.date, as_of: dt.date,
@@ -159,12 +161,13 @@ def risk_out(snap: Snapshot, provider: MarketDataProvider, rates: RateProvider, 
     cmp_ref = refs[reference]
 
     rows: list[schemas.RiskRowOut] = []
-    port, port_start = account_returns(h.total["value"], h.total["inflow"], h.total["outflow"], base, grid)
+    port, port_start, port_idle = account_returns(h.total["value"], h.total["inflow"], h.total["outflow"], base,
+                                                  grid)
     rows.append(_row_out(risk.risk_row("Portefeuille", "portefeuille", port, rf.reindex(port.index),
                                        cmp_ref.reindex(port.index), span), port_start))
     for a in snap.accounts:
         f = h.accounts[a.id]
-        r, start = account_returns(f["value"], f["inflow"], f["outflow"], base, grid)
+        r, start, _ = account_returns(f["value"], f["inflow"], f["outflow"], base, grid)
         a_span = (as_of - start).days + 1 if start else 0
         rows.append(_row_out(risk.risk_row(a.name, "compte", r, rf.reindex(r.index), cmp_ref.reindex(r.index),
                                            min(span, a_span)), start))
@@ -188,11 +191,15 @@ def risk_out(snap: Snapshot, provider: MarketDataProvider, rates: RateProvider, 
     vol = lambda r: pd.concat([pd.Series([np.nan], index=[pd.Timestamp(base)]),
                                m.rolling_volatility(r.reindex(grid), window=w,
                                                     periods=risk.BUSINESS_DAYS)])
-    p_full = port.reindex(grid)                # avant le premier jour actif : NaN (pas de courbe)
+    # Avant le premier jour actif : NaN (pas de courbe). Jours sans capital : niveau et drawdown inchangés (rendement
+    # nul pour les courbes seulement) ; volatilité glissante laissée vide.
+    p_vol = port.reindex(grid)
+    p_full = p_vol.copy()
+    p_full.loc[port_idle] = 0.0
     names = {i: settings.reference(i).name for i in (1, 2)}
     dates = [pd.Timestamp(base).date()] + [d.date() for d in grid]
 
-    for label, r_ in [("Portefeuille", port)] + [(settings.reference(i).name, refs[i]) for i in (1, 2)]:
+    for label, r_ in [("Portefeuille", p_full)] + [(settings.reference(i).name, refs[i]) for i in (1, 2)]:
         gap = m.cut_after_gap(r_.reindex(grid))[1]
         if gap is not None:
             warnings.append(f"{label} : rendement manquant le {_fr_date(gap.date())}, courbes base 100 et "
@@ -218,7 +225,7 @@ def risk_out(snap: Snapshot, provider: MarketDataProvider, rates: RateProvider, 
                 + [schemas.CurveOut(name=names[i], values=_floats(base100(refs[i]), 3)) for i in (1, 2)],
         drawdown=[schemas.CurveOut(name="Portefeuille", values=_floats(dd(p_full), 5)),
                   schemas.CurveOut(name=names[reference], values=_floats(dd(cmp_ref), 5))],
-        rolling_volatility=[schemas.CurveOut(name="Portefeuille", values=_floats(vol(p_full), 5)),
+        rolling_volatility=[schemas.CurveOut(name="Portefeuille", values=_floats(vol(p_vol), 5)),
                             schemas.CurveOut(name=names[reference], values=_floats(vol(cmp_ref), 5))],
         rolling_window=w,
         short_history=risk.short_history_warning(span, len(port)),

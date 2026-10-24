@@ -150,3 +150,42 @@ def test_gap_sentences():
 def test_empty_portfolio_risk(client):
     assert client.get("/api/risk").status_code == 422
     assert client.get("/api/portfolio/performance?period=1y").status_code == 422
+
+
+def test_days_without_capital_are_excluded_from_risk_measures():
+    """Jours sans capital (avant le premier apport, après un retrait total) : hors série. Avant correction, ils
+    comptaient comme des rendements nuls et diluaient volatilité et Sharpe."""
+    import datetime as dt
+
+    import numpy as np
+    import pandas as pd
+
+    from backend.app.services.risk import account_returns
+    from terminal import risk
+
+    cal = pd.date_range("2024-01-01", "2024-06-28", freq="D")
+    sold = pd.Timestamp("2024-03-15")                                   # vente totale ce jour-là
+    rng = np.random.default_rng(7)
+    level = pd.Series(1000.0 * np.cumprod(1 + rng.normal(0, 0.01, len(cal))), index=cal)
+    values = level.where(cal < sold, 0.0)
+    values[cal < pd.Timestamp("2024-01-10")] = 0.0                      # rien d'investi avant le 10/01
+    inflows = pd.Series(0.0, index=cal)
+    inflows[pd.Timestamp("2024-01-10")] = level[pd.Timestamp("2024-01-10")]
+    outflows = pd.Series(0.0, index=cal)
+    outflows[sold] = level[sold]
+    grid = risk.business_grid(dt.date(2023, 12, 31), dt.date(2024, 6, 28))
+
+    res = account_returns(values, inflows, outflows, dt.date(2023, 12, 31), grid)
+    r, start = res[0], res[1]
+    idle = grid[grid > sold]                                             # 3,5 mois sans capital
+    assert start == dt.date(2024, 1, 10)
+    assert r.index.max() == sold                                         # après la vente : hors série, pas 0
+    assert not r.index.intersection(idle).size and r.notna().all()
+    assert res[2].equals(idle)
+    rf = pd.Series(0.0, index=r.index)
+    row = risk.risk_row("P", "portefeuille", r, rf, None, span_days=365)      # 1 an : ratios annualisés affichés
+    assert row.n_days == len(r)
+    assert row.volatility == pytest.approx(float(r.std(ddof=1)) * np.sqrt(risk.BUSINESS_DAYS), rel=1e-9)
+    padded = r.reindex(r.index.union(idle), fill_value=0.0)                 # ancien comportement
+    assert row.volatility > float(padded.std(ddof=1)) * np.sqrt(risk.BUSINESS_DAYS) * 1.2
+

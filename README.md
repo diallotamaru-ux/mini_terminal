@@ -217,8 +217,6 @@ Méthode de calcul détaillée : [`METHODE.md`](METHODE.md).
 - **Revue indépendante (limites restantes)** :
   - si le taux sans risque manque sur une partie de la période, la page Risque calcule avec un taux nul ces
     jours-là et le signale ;
-  - sur la page Risque, un jour sans capital investi (compte soldé en cours de période) compte comme un rendement
-    nul : volatilité et Sharpe sont alors légèrement dilués ;
   - le bêta du k MEDAF est mesuré contre la 2e référence des réglages (MSCI World par défaut) : si vous la
     changez, ce n'est plus le marché mondial ;
   - **Docker n'a pas été vérifié** : Docker Desktop n'est pas installé sur la machine de développement.

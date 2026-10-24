@@ -69,7 +69,7 @@ $$r_t = \frac{V_t + O_t}{V_{t-1} + I_t} - 1, \qquad \mathrm{TWR} = \prod_t (1 + 
 Les apports arrivent en début de journée (ils travaillent au prix d'exécution réel), les retraits partent en fin
 de journée. Tout en fin de journée donnerait un dénominateur nul le premier jour ; tout en début de journée
 donnerait un dénominateur négatif quand on vend tout après une hausse. Entre deux flux, le produit se télescope :
-la grille quotidienne donne exactement le TWR par sous-périodes. Un jour sans capital investi est exclu et signalé.
+la grille quotidienne donne exactement le TWR par sous-périodes. Un jour sans capital investi est exclu et signalé. Sur la page Risque, les jours sans capital (avant le premier apport, après un retrait total) sont hors série : ils n'entrent ni dans la volatilité, ni dans le Sharpe, ni dans le drawdown. Les courbes restent continues (niveau et drawdown inchangés ces jours-là), la volatilité glissante y est vide.
 
 **TRI** (MWR, rendement pondéré par les capitaux) : le taux $r$ tel que
 $\sum_k CF_k / (1 + r)^{(t_k - t_0)/365} = 0$. Flux du point de vue de l'investisseur : $-I_t$ daté du jour $t$,

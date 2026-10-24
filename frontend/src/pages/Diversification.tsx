@@ -42,7 +42,7 @@ function EnbCard({ d }: { d: Div }) {
         <div>
           <div className="text-xs text-muted">Volatilité annualisée</div>
           <div className="num text-2xl font-semibold">{p1(d.sigma_risky)}</div>
-          <div className="text-xs text-ink-2">lignes risquées ; {p1(d.sigma_total)} espèces comprises</div>
+          <div className="text-xs text-ink-2">lignes analysées ; {d.sigma_total === null ? "portefeuille total non calculable" : `${p1(d.sigma_total)} espèces comprises`}</div>
         </div>
       </div>
       <p className="mt-3 text-sm text-ink">{d.text}</p>
@@ -52,9 +52,13 @@ function EnbCard({ d }: { d: Div }) {
         <p><strong className="text-ink">Torsion minimale</strong> : les facteurs sont décorrélés mais restent le plus près
           possible des lignes. Lisible ligne par ligne, mais aveugle à un facteur commun quand les poids sont proches.
           ACP basse et torsion haute : un facteur commun domine.</p>
-        <p><strong className="text-ink">Volatilités</strong> : {p1(d.sigma_risky)} est celle des seules lignes risquées
-          (poids renormalisés). Avec {p1(d.cash_share)} d'espèces, de variance nulle, le portefeuille total a une
-          volatilité de (1 − {p1(d.cash_share)}) × {p1(d.sigma_risky)} = {p1(d.sigma_total)}.</p>
+        <p><strong className="text-ink">Volatilités</strong> : {p1(d.sigma_risky)} est celle des seules lignes analysées
+          (poids renormalisés).{" "}
+          {d.sigma_total !== null && d.cash_share !== null
+            ? <>Avec {p1(d.cash_share)} d'espèces, de variance nulle, le portefeuille total a une volatilité de
+                (1 − {p1(d.cash_share)}) × {p1(d.sigma_risky)} = {p1(d.sigma_total)}.</>
+            : <>La volatilité du portefeuille total n'est pas calculée : des lignes détenues sont exclues de l'analyse
+                (risque inconnu) ou une valeur manque{d.cash_share !== null ? <> ; les espèces représentent {p1(d.cash_share)} du portefeuille entier</> : null}.</>}</p>
       </div>
       <Source meta={d.meta} />
     </Card>

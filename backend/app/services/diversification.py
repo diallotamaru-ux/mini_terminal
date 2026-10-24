@@ -42,6 +42,19 @@ class Prepared:
     cash_eur: float
     cash_known: bool
     warnings: list[str]
+    values_known: bool = True            # valeur de marché connue pour toutes les lignes détenues
+
+    @property
+    def whole(self) -> bool:
+        """Toutes les lignes détenues sont dans l'analyse : la volatilité espèces comprises a un sens."""
+        return self.values_known and all(p.line in self.kept for p in self.positions)
+
+    def cash_share_total(self) -> float | None:
+        """Part d'espèces rapportée au portefeuille ENTIER (lignes exclues comprises) ; None si inconnue."""
+        if not (self.cash_known and self.values_known):
+            return None
+        total = sum(p.value_eur for p in self.positions) + max(self.cash_eur, 0.0)
+        return max(self.cash_eur, 0.0) / total if total > 0 else None
 
 
 def _r(x, d=6):
@@ -108,8 +121,13 @@ def prepare(snap: Snapshot, period: str, partial: str = "inclure") -> Prepared:
     if not cash_known:
         warnings.append("Solde d'espèces inconnu (taux de change manquant) : volatilité totale non calculée.")
     cash = float(sum(v for v in cash_values if v is not None))
-    return Prepared(base, grid, window_weeks, daily, weekly_all[kept], kept, excluded, part, positions, labels,
-                    classes, tickers, cash, cash_known, warnings)
+    p = Prepared(base, grid, window_weeks, daily, weekly_all[kept], kept, excluded, part, positions, labels,
+                 classes, tickers, cash, cash_known, warnings, values_known=not missing_value)
+    if not p.whole:
+        warnings.append("Des lignes détenues sont exclues de l'analyse : leur risque est inconnu, la volatilité du "
+                        "portefeuille total (espèces comprises) n'est donc pas calculée. La part d'espèces est "
+                        "rapportée au portefeuille entier.")
+    return p
 
 
 def available_periods(snap: Snapshot) -> dict[str, bool]:
@@ -160,8 +178,8 @@ def diversification_out(snap: Snapshot, settings: AnalysisSettings, period: str,
         lines=lines,
         excluded=[schemas.ExcludedOut(key=e.key, label=e.label, n_weeks=e.n_weeks, reason=e.reason)
                   for e in p.excluded],
-        cash_share=_r(a.cash_share) if p.cash_known else None,
-        sigma_risky=_r(a.sigma_risky), sigma_total=_r(a.sigma_total) if p.cash_known else None,
+        cash_share=_r(p.cash_share_total()),
+        sigma_risky=_r(a.sigma_risky), sigma_total=_r(a.sigma_total) if p.cash_known and p.whole else None,
         correlation=schemas.MatrixOut(labels=[p.labels[k] for k in a.lines],
                                       values=[[_r(v, 4) for v in row] for row in a.corr.to_numpy()]),
         contributions={
@@ -216,7 +234,7 @@ def simulate_out(snap: Snapshot, provider: MarketDataProvider, settings: Analysi
     contrib.sort(key=lambda c: -(c.after or 0))
     scen = lambda s_: schemas.ScenarioOut(enb_pca=_r(s_.enb_pca, 4), enb_mt=_r(s_.enb_mt, 4),
                                           sigma_risky=_r(s_.sigma_risky), sigma_total=_r(s_.sigma_total)
-                                          if p.cash_known else None, max_drawdown=_r(s_.max_drawdown))
+                                          if p.cash_known and p.whole else None, max_drawdown=_r(s_.max_drawdown))
     return schemas.SimulationOut(
         target=key, target_label=labels.get(key, key), pct=body.pct, mode=body.mode, formula=dv.FORMULAS[body.mode],
         before=scen(before), after=scen(after), contributions=contrib,

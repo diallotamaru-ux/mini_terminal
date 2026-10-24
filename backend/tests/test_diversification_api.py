@@ -69,9 +69,13 @@ def test_real_weights_contributions_and_volatility(dclient):
         assert l["weight"] == pytest.approx(values[l["ticker"]] / total, abs=1e-6)
     for g in ("ligne", "compte", "classe"):
         assert sum(i["contribution"] for i in b["contributions"][g]) == pytest.approx(1.0, abs=1e-5)
-    # Espèces : sigma_total = (1 - e) x sigma_risqué.
-    assert b["sigma_total"] == pytest.approx((1 - b["cash_share"]) * b["sigma_risky"], rel=1e-5)
-    assert b["cash_share"] == pytest.approx(float(summ["cash_eur"]) / (float(summ["cash_eur"]) + total), abs=1e-4)
+    # Revue : ZNEW (détenu) est exclu. La part d'espèces porte sur le portefeuille ENTIER, et la volatilité
+    # espèces comprises n'est pas calculée (risque de ZNEW inconnu). Avant correction : part rapportée aux seules
+    # lignes analysées, et volatilité totale fausse affichée.
+    whole = sum(float(p["market_value_eur"]) for p in pos)
+    assert whole > total
+    assert b["cash_share"] == pytest.approx(float(summ["cash_eur"]) / (float(summ["cash_eur"]) + whole), abs=1e-4)
+    assert b["sigma_total"] is None and any("exclues de l'analyse" in w for w in b["warnings"])
     assert b["estimator"] == "lw_cc" and 0 <= b["shrinkage"] <= 1
     assert 1 <= b["enb_pca"] <= b["n_lines"] and 1 <= b["enb_mt"] <= b["n_lines"]
     assert len(b["correlation"]["values"]) == b["n_lines"] and b["correlation"]["values"][0][0] == pytest.approx(1.0)
@@ -145,3 +149,24 @@ def test_covariance_setting(dclient):
 
 def test_empty_portfolio(client):
     assert client.get("/api/diversification").status_code == 422
+
+
+def test_total_volatility_when_every_line_is_analysed():
+    """Toutes les lignes analysées : sigma_total = (1 − e) × sigma_risqué, e sur le portefeuille entier."""
+    app = create_app(Settings(demo=False), provider=Truncated(), database_url="sqlite://", rates=FixedRates())
+    with TestClient(app) as c:
+        cto = c.post("/api/accounts", json={"name": "CTO", "kind": "CTO", "cash_mode": "avec_especes"}).json()
+        for t, cls in [("MC.PA", "action"), ("CW8.PA", "etf")]:
+            assert c.post("/api/listings", json={"ticker": t, "asset_class": cls}).status_code == 201
+        d0 = days_ago(4 * 365)
+        post_tx(c, account_id=cto["id"], date=d0, type="DEPOT", amount="10000")
+        post_tx(c, account_id=cto["id"], date=d0, type="ACHAT", ticker="MC.PA", quantity="20", price="100")
+        post_tx(c, account_id=cto["id"], date=d0, type="ACHAT", ticker="CW8.PA", quantity="20", price="100")
+        b = c.get("/api/diversification?period=3y").json()
+        summ = c.get("/api/portfolio/summary").json()
+        whole = sum(float(p["market_value_eur"]) for p in c.get("/api/portfolio/positions").json()["positions"])
+        assert b["excluded"] == [] and not any("exclues de l'analyse" in w for w in b["warnings"])
+        e = float(summ["cash_eur"]) / (float(summ["cash_eur"]) + whole)
+        assert b["cash_share"] == pytest.approx(e, abs=1e-4)
+        assert b["sigma_total"] == pytest.approx((1 - b["cash_share"]) * b["sigma_risky"], rel=1e-4)
+

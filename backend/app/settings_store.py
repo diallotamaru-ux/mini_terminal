@@ -7,7 +7,7 @@ Valeurs par défaut :
 - taux sans risque : EONIA avant le 01/10/2019, €STR ensuite ;
 - volatilité glissante sur 63 séances (environ 3 mois) ;
 - covariance de Ledoit-Wolf à cible corrélation constante (page Diversification) ;
-- valorisation : k commun par devise = taux d'État à 10 ans + prime de risque de 5 % (β = 1),
+- valorisation : k commun par devise = taux d'État à 10 ans + prime de risque de 4,20 % (β = 1, Damodaran, prime implicite au 01/10/2026),
   horizon de 10 ans, croissance terminale de 2 %, FCF de départ lissé sur 3 exercices,
   rémunération en actions retranchée (voir METHODE.md).
 """
@@ -48,7 +48,8 @@ class AnalysisSettings(BaseModel):
     covariance: Literal["lw_cc", "lw_id", "empirique"] = "lw_cc"
     # Valorisation (page Valorisation, terminal/dcf.py). Taux en fraction : 0,05 = 5 %.
     k_mode: Literal["devise", "medaf"] = "devise"
-    erp: Decimal = Field(default=Decimal("0.05"), ge=0, le=Decimal("0.15"))
+    # Prime implicite du S&P 500 publiée par Damodaran au 01/10/2026 (méthode principale) : 4,20 %.
+    erp: Decimal = Field(default=Decimal("0.042"), ge=0, le=Decimal("0.15"))
     k_manual: dict[str, Decimal] = Field(default_factory=dict)          # k commun saisi par devise
     g_term: Decimal = Field(default=Decimal("0.02"), ge=Decimal("-0.05"), le=Decimal("0.06"))
     horizon: int = Field(default=10, ge=1, le=30)

@@ -92,7 +92,7 @@ export default function Reglages() {
                   <option value="medaf">MEDAF par action (β de Dimson, Blume)</option>
                 </select>
               </Field>
-              <Field label="Prime de risque actions (%)" hint="k commun = taux à 10 ans + prime (β = 1)">
+              <Field label="Prime de risque actions (%)" hint="défaut 4,20 % : Damodaran, prime implicite du S&P 500 au 01/10/2026">
                 <input inputMode="decimal" required value={pctIn(f.erp)} onChange={(e) => setF({ ...f, erp: pctOut(e.target.value || "0") })} />
               </Field>
               <Field label="k EUR saisi (%)" hint="vide = taux à 10 ans BCE + prime">
@@ -138,7 +138,7 @@ export default function Reglages() {
           <li><strong className="text-ink">Ledoit-Wolf à corrélation constante</strong> : contracte chaque corrélation vers la
             moyenne sans l'effacer. La cible identité les tire vers zéro et fait paraître le portefeuille plus diversifié
             qu'il n'est quand un facteur commun domine.</li>
-          <li><strong className="text-ink">k commun = taux d'État à 10 ans + 5 %</strong> (β = 1) : courbe AAA de la zone euro
+          <li><strong className="text-ink">k commun = taux d'État à 10 ans + prime de risque</strong> (β = 1, 4,20 % par défaut : prime implicite du S&P 500 publiée par A. Damodaran, pages.stern.nyu.edu/~adamodar, au 01/10/2026, méthode principale ; fourchette 3,30 % à 5,67 % selon la méthode) : courbe AAA de la zone euro
             (BCE) pour l'EUR, Treasury (FRED) pour l'USD. C'est le coût des fonds propres d'une entreprise moyenne, un peu au-dessus
             d'un WACC typique : le g implicite est donc légèrement prudent. Justification de la prime dans METHODE.md.</li>
           <li><strong className="text-ink">Croissance terminale de 2 %</strong> : la cible d'inflation, c'est-à-dire une

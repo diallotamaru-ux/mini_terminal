@@ -347,10 +347,10 @@ $VE \le 0$, pas de solution dans l'intervalle.
 
   C'est le coût des fonds propres d'une entreprise moyenne, un peu au-dessus d'un WACC typique (la dette coûte moins
   cher après impôt). Le g implicite est donc légèrement plus élevé : la lecture est prudente.
-- **Prime de risque : 5 %.** Damodaran publie chaque mois une prime implicite du S&P 500. Au 1er octobre 2026 :
-  4,20 % (méthode principale, flux des 12 derniers mois avec taux de distribution ajusté), dans une fourchette de
-  3,30 % à 5,67 % selon la méthode. 5 % se situe dans cette fourchette, un peu au-dessus de l'estimation principale,
-  et reste un chiffre rond, facile à faire varier dans les réglages.
+- **Prime de risque : 4,20 % par défaut.** C'est la dernière prime implicite du S&P 500 publiée par Damodaran, au
+  1er octobre 2026, selon sa méthode principale (flux des 12 derniers mois, taux de distribution ajusté). La fourchette
+  publiée va de 3,30 % à 5,67 % selon la méthode. Source et date sont affichées dans les Réglages ; la valeur reste
+  modifiable. À mettre à jour à la main : l'application ne la télécharge pas.
 - **k MEDAF** (option des réglages, et toujours affiché à côté sur la fiche) :
   - $k_e = r_f + \beta_{Blume} \times \text{prime}$, avec $\beta_{Blume} = 0{,}67\,\beta + 0{,}33$, $\beta$ de Dimson
     hebdomadaire sur 5 ans en EUR contre le MSCI World ;

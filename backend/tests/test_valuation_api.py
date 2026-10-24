@@ -2,7 +2,7 @@
 API Valorisation (DCF inversé), sur des cours et des comptes fixés à la main.
 
 AAA.PA (EUR, IFRS proposée) : trois exercices identiques, FCFF = 1 000 − 200 + 50 × 0,75 − 30 = 807,5 M ;
-VE = 110 × 100 M + 600 M − 300 M − 50 M (placements non courants) + 20 M = 11 270 M ; k commun = 3 % (taux long de test) + 5 % = 8 %.
+VE = 110 × 100 M + 600 M − 300 M − 50 M (placements non courants) + 20 M = 11 270 M ; k commun = 3 % (taux long de test) + 4,20 % (prime par défaut) = 7,20 %.
 USX (USD, US GAAP proposée) : charge d'intérêts manquante sur le dernier exercice -> bloquée.
 BBB.PA : ETF -> exclu.
 """
@@ -68,10 +68,10 @@ def test_fiche_by_hand(vclient):
     assert v["ev"]["lt_investments"] == 50 * M
     assert "IFRS 16" in v["ev"]["debt_rule"]
     kc = v["k_common"]
-    assert kc["k"] == pytest.approx(0.08) and "3,00 %" in kc["detail"] and "Taux longs de test" in kc["detail"]
+    assert kc["k"] == pytest.approx(0.072) and "3,00 %" in kc["detail"] and "Taux longs de test" in kc["detail"]
     assert v["k_used"]["label"] == "commun EUR" and v["g"] == kc["g"]
     # g vérifie l'équation : la valeur actualisée du FCFF au taux g égale la VE.
-    assert dcf.dcf_value(807.5 * M, v["g"], 0.08, 10, 0.02) == pytest.approx(EV, rel=1e-5)
+    assert dcf.dcf_value(807.5 * M, v["g"], 0.072, 10, 0.02) == pytest.approx(EV, rel=1e-5)
     assert v["sentence"].startswith("Le prix actuel suppose une croissance du flux disponible de ")
     assert v["growth_revenue"] == {"value": pytest.approx(0.10), "status": "ok", "years": 2, "n_points": 3,
                                    "start": "2023-12-31", "end": "2025-12-31"}
@@ -148,7 +148,7 @@ def test_profile_hypotheses_and_custom_k(vclient):
     assert not v["profile"]["standard_proposed"] and set(v["profile"]["custom"]) == {"horizon", "k"}
     assert dcf.dcf_value(770 * M, v["g"], 0.10, 5, 0.02) == pytest.approx(EV, rel=1e-5)
     row = vclient.get("/api/valuation").json()["rows"][0]
-    assert row["k"] == pytest.approx(0.08) and row["k_label"] == "commun EUR"    # récapitulatif : k commun
+    assert row["k"] == pytest.approx(0.072) and row["k_label"] == "commun EUR"    # récapitulatif : k commun
 
 
 def test_financial_override_excludes(vclient):
@@ -176,7 +176,7 @@ def test_long_yield_unavailable_then_manual_k(vclient, rates):
 def test_settings_defaults(vclient):
     s = vclient.get("/api/settings").json()["settings"]
     assert (s["k_mode"], s["erp"], s["g_term"], s["horizon"], s["fcf_years"], s["sbc_deduct"]) == \
-        ("devise", "0.05", "0.02", 10, 3, True)
+        ("devise", "0.042", "0.02", 10, 3, True)
     v = vclient.put("/api/settings", json=settings(vclient, horizon=5, fcf_years=1)).json()["settings"]
     assert v["horizon"] == 5
     assert vclient.get("/api/valuation/AAA.PA").json()["fcf_window"] == ["2025-12-31"]

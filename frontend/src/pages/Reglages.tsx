@@ -64,6 +64,13 @@ export default function Reglages() {
                          onChange={(e) => setF({ ...f, rf_fixed_rate: e.target.value.replace(",", ".") || null })} />
                 </Field>
               )}
+              <Field label="Covariance (Diversification)" hint="Ledoit-Wolf : moins de bruit d'estimation">
+                <select value={f.covariance} onChange={(e) => setF({ ...f, covariance: e.target.value as AnalysisSettings["covariance"] })}>
+                  <option value="lw_cc">Ledoit-Wolf, corrélation constante</option>
+                  <option value="lw_id">Ledoit-Wolf, identité réduite</option>
+                  <option value="empirique">Empirique</option>
+                </select>
+              </Field>
               <Field label="Volatilité glissante (séances)" hint="63 ≈ 3 mois">
                 <input type="number" min={21} max={252} value={f.rolling_window}
                        onChange={(e) => setF({ ...f, rolling_window: Number(e.target.value) })} />
@@ -87,6 +94,9 @@ export default function Reglages() {
           <li><strong className="text-ink">IWDA.AS</strong> (iShares Core MSCI World, coté en EUR à Amsterdam,
             capitalisant, réplication physique, frais 0,20 %) : les dividendes sont déjà réinvestis dans le cours.</li>
           <li><strong className="text-ink">€STR</strong>, publié par la BCE ; EONIA avant le 01/10/2019.</li>
+          <li><strong className="text-ink">Ledoit-Wolf à corrélation constante</strong> : contracte chaque corrélation vers la
+            moyenne sans l'effacer. La cible identité les tire vers zéro et fait paraître le portefeuille plus diversifié
+            qu'il n'est quand un facteur commun domine.</li>
         </ul>
       </Card>
     </>

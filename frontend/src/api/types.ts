@@ -301,4 +301,73 @@ export interface AnalysisSettings {
   rf_mode: "estr" | "fixe" | "zero";
   rf_fixed_rate: string | null;
   rolling_window: number;
+  covariance: "lw_cc" | "lw_id" | "empirique";
+}
+
+// --- Phase 3 : diversification -------------------------------------------------
+
+export interface ContribItem {
+  key: string;
+  label: string;
+  contribution: number | null;
+  weight: number | null;
+}
+
+export interface Diversification {
+  meta: Meta;
+  period: Period;
+  period_label: string;
+  base_date: string;
+  available_periods: Record<Period, boolean>;
+  window_start: string;
+  window_end: string;
+  window_weeks: number;
+  min_weeks: number;
+  partial_mode: "inclure" | "exclure";
+  estimator: "lw_cc" | "lw_id" | "empirique";
+  estimator_label: string;
+  shrinkage: number | null;
+  t_min: number;
+  t_max: number;
+  higham: { applied: boolean; frobenius_rel: number | null; max_corr_change: number | null; threshold: number | null; warning: boolean };
+  lines: { key: string; label: string; ticker: string; asset_class: string; weight: number | null; n_weeks: number; partial: boolean }[];
+  excluded: { key: string; label: string; n_weeks: number; reason: string }[];
+  cash_share: number | null;
+  sigma_risky: number | null;
+  sigma_total: number | null;
+  correlation: { labels: string[]; values: (number | null)[][] };
+  contributions: Record<"ligne" | "compte" | "classe", ContribItem[]>;
+  enb_pca: number | null;
+  enb_mt: number | null;
+  n_lines: number;
+  pc1_variance_share: number | null;
+  pc1_eigen_share: number | null;
+  pc1_loadings: ContribItem[];
+  mt_contributions: ContribItem[];
+  text: string;
+  warnings: string[];
+}
+
+export interface Scenario {
+  enb_pca: number | null;
+  enb_mt: number | null;
+  sigma_risky: number | null;
+  sigma_total: number | null;
+  max_drawdown: number | null;
+}
+
+export interface Simulation {
+  target: string;
+  target_label: string;
+  pct: number;
+  mode: "frais" | "realloc";
+  formula: string;
+  before: Scenario;
+  after: Scenario;
+  contributions: { key: string; label: string; weight_before: number | null; weight_after: number | null; before: number | null; after: number | null }[];
+  drawdown_start: string | null;
+  drawdown_end: string | null;
+  estimator_label: string;
+  notes: string[];
+  disclaimer: string;
 }

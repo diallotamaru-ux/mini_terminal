@@ -6,6 +6,7 @@ import { useMeta } from "./api/client";
 import type { Meta } from "./api/types";
 import { SimulatedBanner } from "./components/ui";
 import Comptes from "./pages/Comptes";
+import Diversification from "./pages/Diversification";
 import Performance from "./pages/Performance";
 import Positions from "./pages/Positions";
 import Reglages from "./pages/Reglages";
@@ -18,6 +19,7 @@ const NAV = [
   { to: "/positions", label: "Positions" },
   { to: "/performance", label: "Performance", keepPeriod: true },
   { to: "/risque", label: "Risque", keepPeriod: true },
+  { to: "/diversification", label: "Diversification", keepPeriod: true },
   { to: "/transactions", label: "Transactions" },
   { to: "/comptes", label: "Comptes et titres" },
   { to: "/reglages", label: "Réglages" },
@@ -93,6 +95,7 @@ export default function App() {
           <Route path="/transactions" element={<Transactions />} />
           <Route path="/comptes" element={<Comptes />} />
           <Route path="/risque" element={<Risque />} />
+          <Route path="/diversification" element={<Diversification />} />
           <Route path="/reglages" element={<Reglages />} />
         </Routes>
       </main>

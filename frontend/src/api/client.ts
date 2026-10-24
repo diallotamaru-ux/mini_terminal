@@ -7,9 +7,11 @@ import type {
   ImportReport,
   Listing,
   AnalysisSettings,
+  Diversification,
   Performance,
   Period,
   Risk,
+  Simulation,
   Position,
   Meta,
   SplitAdjustment,
@@ -78,6 +80,10 @@ export const api = {
   history: () => request<History>("/api/portfolio/history"),
   performance: (period: Period) => request<Performance>(`/api/portfolio/performance?period=${period}`),
   risk: (period: Period, reference: number) => request<Risk>(`/api/risk?period=${period}&reference=${reference}`),
+  diversification: (period: Period, partial: string) =>
+    request<Diversification>(`/api/diversification?period=${period}&partial=${partial}`),
+  simulate: (b: { period: Period; ticker: string; pct: number; mode: string }) =>
+    request<Simulation>("/api/diversification/simulate", json("POST", b)),
   settings: () => request<{ settings: AnalysisSettings; warnings: string[] }>("/api/settings"),
   saveSettings: (s: AnalysisSettings) =>
     request<{ settings: AnalysisSettings; warnings: string[] }>("/api/settings", json("PUT", s)),
@@ -96,6 +102,9 @@ export const usePerformance = (period: Period) =>
   useQuery({ queryKey: ["portfolio", "performance", period], queryFn: () => api.performance(period), placeholderData: keepPreviousData });
 export const useRisk = (period: Period, reference: number) =>
   useQuery({ queryKey: ["portfolio", "risk", period, reference], queryFn: () => api.risk(period, reference), placeholderData: keepPreviousData });
+export const useDiversification = (period: Period, partial: string) =>
+  useQuery({ queryKey: ["portfolio", "diversification", period, partial], queryFn: () => api.diversification(period, partial),
+    placeholderData: keepPreviousData, retry: false });
 export const useSettings = () => useQuery({ queryKey: ["settings"], queryFn: api.settings });
 
 /** Mutation qui invalide tout ce qui dépend du grand livre. */

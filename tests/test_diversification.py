@@ -144,5 +144,5 @@ def test_concentrated_text_and_line_returns():
 
 
 def test_no_value_raises():
-    with pytest.raises(ValueError):
+    with pytest.raises(dv.DiversificationError):
         dv.analyze(_weekly(list("AB")), [], {}, LABELS, 0.0)

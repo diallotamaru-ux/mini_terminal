@@ -407,3 +407,119 @@ class RiskOut(BaseModel):
 class SettingsOut(BaseModel):
     settings: dict
     warnings: list[str] = []
+
+
+# ---------------------------------------------------------------------------
+# Diversification
+# ---------------------------------------------------------------------------
+
+class ContribItem(BaseModel):
+    key: str
+    label: str
+    contribution: float | None        # part (somme 1) : contribution au risque, ou composante du facteur
+    weight: float | None = None
+
+
+class LineOut(BaseModel):
+    key: str
+    label: str
+    ticker: str
+    asset_class: str
+    weight: float | None
+    n_weeks: int
+    partial: bool
+
+
+class ExcludedOut(BaseModel):
+    key: str
+    label: str
+    n_weeks: int
+    reason: str
+
+
+class HighamOut(BaseModel):
+    applied: bool
+    frobenius_rel: float | None
+    max_corr_change: float | None
+    threshold: float | None
+    warning: bool
+
+
+class MatrixOut(BaseModel):
+    labels: list[str]
+    values: list[list[float | None]]
+
+
+class DiversificationOut(BaseModel):
+    meta: Meta
+    period: str
+    period_label: str
+    base_date: dt.date
+    available_periods: dict[str, bool]
+    window_start: dt.date
+    window_end: dt.date
+    window_weeks: int
+    min_weeks: int
+    partial_mode: str
+    estimator: str
+    estimator_label: str
+    shrinkage: float | None
+    t_min: int
+    t_max: int
+    higham: HighamOut
+    lines: list[LineOut]
+    excluded: list[ExcludedOut]
+    cash_share: float | None
+    sigma_risky: float | None
+    sigma_total: float | None
+    correlation: MatrixOut
+    contributions: dict[str, list[ContribItem]]
+    enb_pca: float | None
+    enb_mt: float | None
+    n_lines: int
+    pc1_variance_share: float | None
+    pc1_eigen_share: float | None
+    pc1_loadings: list[ContribItem]
+    mt_contributions: list[ContribItem]
+    text: str
+    warnings: list[str]
+
+
+class SimulationIn(BaseModel):
+    period: Period = "origine"
+    ticker: str = Field(min_length=1, max_length=20)
+    pct: float = Field(ge=0, le=100)          # en %
+    mode: Literal["frais", "realloc"] = "frais"
+
+
+class ScenarioOut(BaseModel):
+    enb_pca: float | None
+    enb_mt: float | None
+    sigma_risky: float | None
+    sigma_total: float | None
+    max_drawdown: float | None
+
+
+class SimContrib(BaseModel):
+    key: str
+    label: str
+    weight_before: float | None
+    weight_after: float | None
+    before: float | None
+    after: float | None
+
+
+class SimulationOut(BaseModel):
+    target: str
+    target_label: str
+    pct: float
+    mode: str
+    formula: str
+    before: ScenarioOut
+    after: ScenarioOut
+    contributions: list[SimContrib]
+    drawdown_start: dt.date | None
+    drawdown_end: dt.date | None
+    estimator_label: str
+    notes: list[str]
+    disclaimer: str

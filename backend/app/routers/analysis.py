@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -20,6 +21,21 @@ router = APIRouter(prefix="/api", tags=["risque"])
 def risk(period: schemas.Period = "origine", reference: int = Query(1, ge=1, le=2),
          as_of: dt.date | None = None, s: Session = Depends(get_session), st: AppState = Depends(get_state)):
     return st.risk(s, period, reference, as_of)
+
+
+@router.get("/diversification", response_model=schemas.DiversificationOut)
+def diversification(period: schemas.Period = "origine",
+                    partial: Literal["inclure", "exclure"] = "inclure", as_of: dt.date | None = None,
+                    s: Session = Depends(get_session), st: AppState = Depends(get_state)):
+    return st.diversification(s, period, partial, as_of)
+
+
+@router.post("/diversification/simulate", response_model=schemas.SimulationOut)
+def simulate(body: schemas.SimulationIn, s: Session = Depends(get_session), st: AppState = Depends(get_state)):
+    """Simulation sur données passées : rien n'est écrit en base."""
+    from ..services.diversification import simulate_out
+
+    return simulate_out(st.snapshot(s), st.provider, settings_store.load(s), body)
 
 
 @router.get("/settings", response_model=schemas.SettingsOut)

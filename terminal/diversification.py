@@ -27,7 +27,12 @@ import pandas as pd
 from . import covariance as cv
 from . import metrics as m
 from .benchmark import to_eur
+from .errors import TerminalError
 from .risk import index_returns, to_weekly
+
+class DiversificationError(TerminalError):
+    pass
+
 
 MIN_WEEKS = 52          # un an : erreur-type d'une corrélation ~ (1 - rho^2) / sqrt(52) = 0,14 pour rho = 0
 WEEKS_PER_YEAR = 52
@@ -144,12 +149,12 @@ def analyze(weekly: pd.DataFrame, positions: list[Position], classes: dict[str, 
     cols = list(weekly.columns)
     rows = [p.__dict__ for p in positions if p.line in cols]
     if not rows:
-        raise ValueError("Aucune position sur les lignes analysées.")
+        raise DiversificationError("Aucune position sur les lignes analysées.")
     pos = pd.DataFrame(rows)
     values = pos.groupby("line")["value_eur"].sum().reindex(cols).fillna(0.0)
     risky = float(values.sum())
     if risky <= 0:
-        raise ValueError("Aucune valeur de marché sur les lignes analysées.")
+        raise DiversificationError("Aucune valeur de marché sur les lignes analysées.")
     w = values / risky
     est = cv.estimate(weekly, method)
     cov = est.cov

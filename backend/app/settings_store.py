@@ -5,7 +5,8 @@ Valeurs par défaut :
 - référence principale : QQQ (Nasdaq 100), dividendes nets d'une retenue de 15 % ;
 - seconde référence : IWDA.AS (MSCI World, capitalisant, coté en EUR), retenue 0 % ;
 - taux sans risque : EONIA avant le 01/10/2019, €STR ensuite ;
-- volatilité glissante sur 63 séances (environ 3 mois).
+- volatilité glissante sur 63 séances (environ 3 mois) ;
+- covariance de Ledoit-Wolf à cible corrélation constante (page Diversification).
 """
 
 from __future__ import annotations
@@ -40,6 +41,8 @@ class AnalysisSettings(BaseModel):
     rf_mode: Literal["estr", "fixe", "zero"] = "estr"
     rf_fixed_rate: Decimal | None = Field(default=None, ge=Decimal("-5"), le=Decimal("20"))   # en %
     rolling_window: int = Field(default=63, ge=21, le=252)
+    # Estimateur de covariance de la page Diversification (voir terminal/covariance.py).
+    covariance: Literal["lw_cc", "lw_id", "empirique"] = "lw_cc"
 
     def reference(self, i: int) -> Reference:
         return self.reference_1 if i == 1 else self.reference_2

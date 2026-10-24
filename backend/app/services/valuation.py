@@ -222,7 +222,7 @@ def k_capm(rf: float | None, settings: AnalysisSettings, b: float | None, ev: dc
                    None if pd.isna(interest) else float(interest), avg, tax)
     if c.k is None:
         return schemas.KOut(k=None, label=label, detail="", error=c.reason)
-    parts = [f"ke = {_pct(rf)} + {_num(c.beta_adj)} × {_pct(float(settings.erp), 1)} = {_pct(c.ke)} "
+    parts = [f"ke = {_pct(rf)} + {_num(c.beta_adj)} × {_pct(float(settings.erp), 2)} = {_pct(c.ke)} "
              f"(β de Dimson {_num(c.beta_raw)}, ajusté par Blume, hebdomadaire sur {BETA_YEARS} ans)"]
     if c.kd_after_tax is not None:
         parts.append(f"kd après impôt {_pct(c.kd_after_tax)}, fonds propres {_pct(c.weight_equity, 0)} de "

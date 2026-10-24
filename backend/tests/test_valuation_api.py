@@ -209,3 +209,30 @@ def test_fundamentals_cache_served_when_provider_down(provider):
     provider.down.add("USX")
     with pytest.raises(ProviderUnavailable):
         cp.fundamentals("USX")                                                   # ni fournisseur ni cache
+
+
+def test_demo_capm_and_k_mode():
+    """Démo (cours simulés) : β de Dimson calculable, k MEDAF affiché à côté du k commun, et retenu en mode MEDAF."""
+    from fastapi.testclient import TestClient
+
+    from backend.app.config import Settings
+    from backend.app.main import create_app
+    from terminal.marketdata.simulated import SimulatedProvider
+
+    with TestClient(create_app(Settings(demo=True), provider=SimulatedProvider(), database_url="sqlite://")) as c:
+        v = c.get("/api/valuation/ASML.AS").json()
+        assert v["meta"]["simulated"] and v["status"] == "ok"
+        assert v["profile"]["standard"] == "us_gaap" and not v["profile"]["standard_proposed"]
+        capm = v["k_capm"]
+        assert capm["k"] is not None and capm["g"] is not None and "Blume" in capm["detail"]
+        assert v["k_used"]["label"] == "commun EUR"
+        mc = c.get("/api/valuation/MC.PA").json()
+        assert mc["status"] == "ok" and mc["years"][-1]["values"]["sbc"]["manual"]
+        assert c.get("/api/valuation/AAPL").json()["status"] == "bloquee"
+        s = c.get("/api/settings").json()["settings"]
+        assert c.put("/api/settings", json={**s, "k_mode": "medaf"}).status_code == 200
+        v = c.get("/api/valuation/ASML.AS").json()
+        assert v["k_used"]["label"] == "MEDAF" and v["g"] == capm["g"]
+        rows = c.get("/api/valuation").json()["rows"]
+        assert all(r["k_label"].startswith("commun") for r in rows)          # le récapitulatif reste au k commun
+        assert [r["g"] for r in rows] == sorted((r["g"] for r in rows), reverse=True)

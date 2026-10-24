@@ -74,7 +74,7 @@ La base SQLite est conservée dans le volume `mt-data`.
 ### Tests
 
 ```powershell
-.venv\Scripts\python -m pytest --cov      # 289 tests ; couverture du module de calcul : 98 %
+.venv\Scripts\python -m pytest --cov      # 319 tests ; couverture du module de calcul : 98 %
 cd frontend; npx tsc -p .                # vérification des types
 ```
 
@@ -214,6 +214,14 @@ Méthode de calcul détaillée : [`METHODE.md`](METHODE.md).
   - les banques et assurances sont exclues : il faudrait une valorisation par les fonds propres ;
   - **amélioration future** : lire les comptes américains directement dans SEC EDGAR (XBRL, gratuit et officiel)
     au lieu de Yahoo. Le recoupement d'Apple l'a utilisé à la main (METHODE.md).
+- **Revue indépendante (limites restantes)** :
+  - si le taux sans risque manque sur une partie de la période, la page Risque calcule avec un taux nul ces
+    jours-là et le signale ;
+  - sur la page Risque, un jour sans capital investi (compte soldé en cours de période) compte comme un rendement
+    nul : volatilité et Sharpe sont alors légèrement dilués ;
+  - le bêta du k MEDAF est mesuré contre la 2e référence des réglages (MSCI World par défaut) : si vous la
+    changez, ce n'est plus le marché mondial ;
+  - **Docker n'a pas été vérifié** : Docker Desktop n'est pas installé sur la machine de développement.
 - **Bases d'annualisation** : rendement annualisé en jours calendaires (365), volatilité et ratios en jours ouvrés (261,
   grille lundi-vendredi) ou en semaines (52), selon la convention de chaque mesure.
 - **Petits écarts d'arrondi** entre la courbe de valeur (flottants) et les totaux (`Decimal`) : au plus

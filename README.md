@@ -74,7 +74,7 @@ La base SQLite est conservée dans le volume `mt-data`.
 ### Tests
 
 ```powershell
-.venv\Scripts\python -m pytest --cov      # 319 tests ; couverture du module de calcul : 98 %
+.venv\Scripts\python -m pytest --cov      # 320 tests ; couverture du module de calcul : 98 %
 cd frontend; npx tsc -p .                # vérification des types
 ```
 

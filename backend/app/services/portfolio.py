@@ -126,6 +126,10 @@ class Snapshot:
         v = _last_on_or_before(s.closes, d)
         if v is None:
             raise MissingCurrency(currency, f"aucun taux connu au {d.isoformat()}")
+        if (d - v[0]).days > MAX_STALE_DAYS:
+            # Même règle que les cours : au plus 7 jours de report, sinon le taux est manquant (jamais un taux ancien).
+            raise MissingCurrency(currency, f"aucun taux depuis le {v[0].isoformat()}, trop ancien pour le "
+                                            f"{d.isoformat()}")
         return to_decimal(v[1], 8)
 
     def quote(self, ticker: str) -> tuple[Decimal | None, dt.date | None, bool, str | None]:

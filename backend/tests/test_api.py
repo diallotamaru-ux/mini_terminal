@@ -285,3 +285,23 @@ def test_split_provider_down_is_reported(client, setup, provider):
             quantity="1", price="10")
     w = client.get("/api/portfolio/summary").json()["meta"]["warnings"]
     assert any("Divisions de DOWN.PA non vérifiées" in x for x in w)
+
+
+def test_stale_fx_rate_is_missing_not_reused(client, provider, setup):
+    """Revue : le taux de change était repris sans limite d'ancienneté. Trou de change de 60 à 5 jours : un achat
+    d'il y a 20 jours, sans taux du courtier, était converti au taux d'il y a 60 jours, sans avertissement."""
+    import pandas as pd
+
+    from terminal.marketdata.base import PriceSeries
+
+    def fx_rates(currency, start, end):
+        s = pd.Series(0.9, index=pd.date_range(start, end, freq="D"))
+        s = s[(s.index < pd.Timestamp(days_ago(60))) | (s.index >= pd.Timestamp(days_ago(5)))]
+        return PriceSeries(currency, s, "Change de test")
+    provider.fx_rates = fx_rates
+    post_tx(client, account_id=setup["cash"], date=days_ago(100), type="DEPOT", amount="1000")
+    post_tx(client, account_id=setup["secu"], date=days_ago(20), type="ACHAT", ticker="USX", quantity="1",
+            price="20")
+    pos = next(p for p in client.get("/api/portfolio/positions").json()["positions"] if p["ticker"] == "USX")
+    assert pos["cost_eur"] is None and pos["market_value_eur"] is not None         # taux récent, lui, connu
+

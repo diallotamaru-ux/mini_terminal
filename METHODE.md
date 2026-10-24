@@ -163,6 +163,86 @@ i.i.d. d'un Sharpe nul, comme ordre de grandeur.
 **Règles d'affichage.** Aucun indicateur annualisé sur moins d'un an. Avertissement visible sous 3 ans d'historique.
 Mesures relatives masquées sous 26 semaines. Une valeur manquante rend la série incomplète, et rien n'est calculé.
 
+### Diversification du portefeuille réel
+
+**Poids.** Valeurs de marché en EUR à la date de valorisation : ce sont les poids réels, pas des poids constants.
+L'unité est le titre (ISIN, sinon ticker), regroupé sur tous les comptes : une même ligne dans deux comptes ne crée pas
+deux colonnes parfaitement corrélées. Les espèces sont exclues et les poids renormalisés sur les lignes risquées. Leur
+variance étant nulle, la volatilité du portefeuille total vaut $\sigma_{total} = (1 - e)\,\sigma_{risqué}$, avec $e$ la part
+d'espèces. Les deux chiffres sont affichés.
+
+**Données.** Rendements **hebdomadaires** en EUR de chaque ligne (cours du fournisseur × taux du jour, jours ouvrés,
+semaines au vendredi), sur la fenêtre de la période choisie, quelle que soit la date d'achat. Les mesures croisées
+utilisent l'hebdomadaire pour la raison donnée plus haut (clôtures non synchrones).
+
+**Historique minimal : 52 semaines.** L'erreur-type d'une corrélation estimée vaut environ $(1-\rho^2)/\sqrt{T}$, soit
+0,14 pour $\rho = 0$ et $T = 52$ : en deçà, une corrélation de 0,3 n'est pas distinguable de 0. Une ligne qui a moins de
+52 semaines de cours sur la fenêtre est exclue et signalée, jamais complétée. Une ligne partielle, qui a au moins 52
+semaines sans couvrir toute la fenêtre, est gardée **sans réduire la fenêtre des autres**.
+
+**Covariance par paires.** Chaque élément $\Sigma_{ij}$ est estimé sur les semaines communes aux lignes $i$ et $j$. Sans
+donnée manquante, c'est exactement la covariance empirique (testé). Avec des lignes partielles, la matrice peut ne pas
+être semi-définie positive. Sa matrice de corrélation est alors remplacée par la matrice de corrélation la plus proche
+en norme de Frobenius (Higham, 2002 : projections alternées avec correction de Dykstra, testé sur l'exemple publié), puis
+remise à l'échelle par les écarts-types.
+
+**Garde-fou.** On affiche la norme relative de la correction, $\lVert \tilde C - C \rVert_F / \lVert C \rVert_F$, et la plus
+grande variation d'un coefficient de corrélation. Le seuil vaut $1/\sqrt{T_{min}}$, soit l'erreur-type d'une corrélation
+estimée sur la plus courte période commune (0,14 pour 52 semaines). Au-delà, la correction déplace un coefficient de
+plus que le bruit d'estimation : un avertissement s'affiche, avec la comparaison « lignes partielles exclues ».
+
+**Estimateurs** (réglage, Ledoit-Wolf à corrélation constante par défaut) :
+
+| Estimateur | Cible $F$ | Effet |
+|---|---|---|
+| Ledoit-Wolf, corrélation constante (2004, « Honey, I Shrunk the Sample Covariance Matrix ») | variances conservées, toutes les corrélations égales à la moyenne $\bar r$ | réduit le bruit sans changer le niveau moyen des corrélations |
+| Ledoit-Wolf, identité réduite (2004, « A Well-Conditioned Estimator… ») | $\frac{\mathrm{tr}\,S}{N} I$ | **tire les corrélations vers zéro et gonfle donc l'ENB** quand un facteur commun existe |
+| Empirique | aucune | non biaisée, mais bruitée quand $T$ est petit devant $N$ |
+
+$\hat\Sigma = \delta F + (1-\delta) S$, avec l'intensité optimale $\delta \in [0, 1]$ des articles (testé contre une
+transcription des formules publiées). Avec des données manquantes, les moments $\pi$, $\rho$ et $\gamma$ sont calculés par
+paires, et l'intensité utilise $T_{min}$ : c'est une adaptation prudente (moins de données, plus de contraction),
+documentée comme telle.
+
+**Effet du choix sur l'ENB.** Simulation à covariance connue avec le code de l'application : 17 lignes, poids tirés
+au hasard, 40 échantillons par cas (moyenne ± écart-type).
+
+| Structure | T | Vraie | Empirique | LW corrélation constante | LW identité |
+|---|---|---|---|---|---|
+| Un facteur commun — ENB ACP | 150 | 1,14 | 1,14 ± 0,02 | 1,14 ± 0,02 (δ = 0,25) | 1,15 ± 0,02 (δ = 0,03) |
+| | 60 | 1,14 | 1,16 ± 0,05 | 1,17 ± 0,04 (δ = 0,56) | **1,19 ± 0,06** (δ = 0,09) |
+| Un facteur commun — ENB torsion | 150 | 16,45 | 16,39 ± 0,11 | 16,48 ± 0,09 | 16,37 ± 0,12 |
+| | 60 | 16,45 | 16,33 ± 0,20 | 16,49 ± 0,13 | 16,21 ± 0,23 |
+| Trois blocs — ENB ACP | 60 | 1,11 | 1,15 ± 0,07 | 1,14 ± 0,04 (δ = 0,47) | **1,17 ± 0,07** (δ = 0,11) |
+| Trois blocs — ENB torsion | 60 | 15,58 | 15,44 ± 0,39 | 15,70 ± 0,32 | 15,27 ± 0,41 |
+
+Lecture : l'ENB par ACP, dominé par le premier facteur, est peu sensible à l'estimateur. Avec 150 semaines, les trois
+estimateurs se valent. Quand l'historique raccourcit (60 semaines), la cible identité **surestime** l'ENB par ACP et
+augmente la dispersion. La corrélation constante reste la plus proche de la vérité et la plus stable. Sur le portefeuille
+de démonstration (7 lignes, 1 an au 24/10/2026), l'ENB par ACP vaut 1,34 avec la corrélation constante, **1,41** avec
+l'identité et 1,33 avec l'empirique.
+
+**Mesures.** Celles de `metrics.py` (`risk_contributions`, `pca_diversification`, `minimum_torsion_diversification`),
+auxquelles on passe la covariance estimée (paramètre `cov`). Contributions d'Euler par ligne. Par compte et par classe,
+elles sont exactes par linéarité : $RC_{position} = w_{position}\,(\Sigma w)_{ligne} / \sigma^2$. Le texte
+d'interprétation suit des règles écrites :
+- facteur commun si le premier facteur porte au moins 60 % de la variance **et** si l'ENB torsion vaut au moins 2 fois
+  l'ENB ACP ;
+- concentration si l'ENB torsion est inférieur à la moitié du nombre de lignes ;
+- sinon, risque réparti.
+
+**Simulateur** (rien n'est écrit) :
+- argent frais : $w' = (w + x\,e_Y)/(1 + x)$, et la part d'espèces devient $e' = e/(1 + x(1-e))$ ;
+- réallocation : $w' = (1-x)\,w + x\,e_Y$.
+
+Avant et après utilisent la **même** covariance. Pour un nouveau ticker, elle est estimée avec lui, à poids nul avant.
+Le drawdown historique suppose des poids constants (rééquilibrage quotidien) sur les jours où toutes les lignes ont un
+cours : c'est une hypothèse de simulation, différente du portefeuille réel, dont les poids dérivent. Ajouter 0 % ne
+change rien (testé, dans les deux modes).
+
+**Recoupement réel** (4 lignes, dont une en USD et une crypto, estimateur empirique, 1 an au 23/10/2026) : corrélations
+identiques à un calcul indépendant à 4·10⁻⁵ près (arrondi), volatilité 14,0695 % des deux côtés.
+
 ### Limites
 
 - Toutes ces mesures sont des **estimations sur le passé**. Pour des rendements i.i.d., l'erreur-type du Sharpe estimé sur $n$ périodes vaut $\sqrt{(1 + S_p^2/2)/n}$, avec $S_p$ le Sharpe par période (Lo, 2002). En données quotidiennes, $S_p$ est petit et l'erreur-type du Sharpe annualisé se réduit à environ $1/\sqrt{T}$, avec $T$ la durée en années. Sur 5 ans : environ 0,45. Un Sharpe estimé de 0,8 a donc un intervalle de confiance à 95 % d'environ $0{,}8 \pm 1{,}96 \times 0{,}45$, soit $[-0{,}1\ ;\ 1{,}7]$.
@@ -170,6 +250,11 @@ Mesures relatives masquées sous 26 semaines. Une valeur manquante rend la séri
 - Les données Yahoo Finance sont gratuites et non garanties : erreurs ponctuelles possibles.
 
 ### Sources
+
+- Higham, N. J. (2002). *Computing the Nearest Correlation Matrix — A Problem from Finance*. IMA Journal of Numerical Analysis.
+- Ledoit, O., Wolf, M. (2004). *Honey, I Shrunk the Sample Covariance Matrix*. Journal of Portfolio Management.
+- Ledoit, O., Wolf, M. (2004). *A Well-Conditioned Estimator for Large-Dimensional Covariance Matrices*. Journal of Multivariate Analysis.
+- Newey, W. K., West, K. D. (1994). *Automatic Lag Selection in Covariance Matrix Estimation*. Review of Economic Studies.
 
 - Scholes, M., Williams, J. (1977). *Estimating Betas from Nonsynchronous Data*. Journal of Financial Economics.
 - Dimson, E. (1979). *Risk Measurement When Shares Are Subject to Infrequent Trading*. Journal of Financial Economics.

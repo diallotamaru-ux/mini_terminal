@@ -2,15 +2,18 @@
 
 Application web d'analyse de portefeuille personnel, construite à partir des **transactions réelles** :
 positions, prix de revient, plus-values, performance mesurée de deux façons (TWR et TRI), et comparaison au
-Nasdaq 100 et au MSCI World en euros, avec la marge d'erreur de chaque ratio.
+Nasdaq 100 et au MSCI World en euros, avec la marge d'erreur de chaque ratio, et mesure de la diversification
+réelle (contributions au risque, nombre effectif de paris, simulateur).
 Devise de référence : l'euro. Plusieurs comptes (compte-titres, PEA, crypto), actifs cotés en EUR ou en USD.
 
 L'application **lit et analyse, elle n'agit pas** : aucune exécution d'ordre, aucune connexion à un courtier,
 aucun identifiant stocké.
 
-| Risque et comparaison | Performance par période (thème clair) |
+| Diversification | Risque et comparaison |
 |---|---|
-| ![Risque](docs/captures/risque.png) | ![Performance](docs/captures/performance-clair.png) |
+| ![Diversification](docs/captures/diversification.png) | ![Risque](docs/captures/risque.png) |
+| **Diversification (thème clair)** | **Performance par période (thème clair)** |
+| ![Diversification](docs/captures/diversification-clair.png) | ![Performance](docs/captures/performance-clair.png) |
 | **Tableau de bord (thème sombre)** | **Performance depuis l'origine** |
 | ![Tableau de bord](docs/captures/tableau-de-bord.png) | ![Performance](docs/captures/performance.png) |
 | **Positions (thème clair)** | **Positions sur mobile** |
@@ -28,7 +31,7 @@ trajectoire choisie pour flatter le portefeuille.*
 |---|---|---|
 | 1 | Comptes, transactions, import CSV, positions, PRU, plus-values, TWR, TRI, tableau de bord | **terminée** |
 | 2 | Indicateurs de risque sur le TWR réel, comparaison au Nasdaq 100 et au MSCI World en EUR, intervalles de confiance, périodes | **terminée** |
-| 3 | Corrélations, contributions au risque, ENB (ACP et torsion minimale), simulateur | à venir |
+| 3 | Corrélations, contributions au risque, ENB (ACP et torsion minimale), Ledoit-Wolf, simulateur | **terminée** |
 | 4 | Fiche par action, DCF inversé | à venir |
 
 ## Installation
@@ -66,7 +69,7 @@ La base SQLite est conservée dans le volume `mt-data`.
 ### Tests
 
 ```powershell
-.venv\Scripts\python -m pytest --cov      # 193 tests ; couverture du module de calcul : 98 %
+.venv\Scripts\python -m pytest --cov      # 232 tests ; couverture du module de calcul : 98 %
 cd frontend; npx tsc -p .                # vérification des types
 ```
 
@@ -90,8 +93,8 @@ cd frontend; npx tsc -p .                # vérification des types
    [`docs/FORMAT_CSV.md`](docs/FORMAT_CSV.md), exemple : [`examples/transactions_exemple.csv`](examples/transactions_exemple.csv).
 4. **Réglages** : références de comparaison (QQQ et IWDA.AS par défaut), retenue à la source sur leurs dividendes,
    taux sans risque (€STR, taux fixe ou nul), fenêtre de la volatilité glissante.
-5. **Performance** et **Risque** : choisissez la période (origine, début d'année, 1, 3 ou 5 ans). La période suit
-   d'une page à l'autre.
+5. **Performance**, **Risque** et **Diversification** : choisissez la période (origine, début d'année, 1, 3 ou 5 ans).
+   La période suit d'une page à l'autre. La diversification exige au moins 52 semaines.
 
 ## Architecture
 
@@ -107,6 +110,8 @@ mini_terminal/
 │   ├── benchmark.py          Références dividendes réinvestis, converties en euros
 │   ├── riskfree.py           Taux sans risque : raccord EONIA / €STR, convention ACT/360
 │   ├── splits.py             Ajustement des transactions pour les divisions d'actions
+│   ├── covariance.py         Covariance par paires, matrice la plus proche (Higham), Ledoit-Wolf
+│   ├── diversification.py    Poids réels, contributions, ENB, premier facteur, simulateur
 │   ├── marketdata/
 │   │   ├── base.py           Interface MarketDataProvider et erreurs typées
 │   │   ├── yahoo.py          Implémentation yfinance (seul fichier qui l'importe)
@@ -119,7 +124,7 @@ mini_terminal/
 │   ├── market.py             Cache en base des cours, dividendes, divisions et taux
 │   ├── settings_store.py     Réglages d'analyse, stockés en base
 │   ├── services/             portfolio.py (base -> cœur -> réponses), csv_import.py, ledger_check.py
-│   └── routers/              accounts, listings, transactions, portfolio, analysis (risque, réglages)
+│   └── routers/              accounts, listings, transactions, portfolio, analysis (risque, diversification, réglages)
 ├── frontend/                 React + TypeScript + Vite + Tailwind ; Lightweight Charts, ECharts
 ├── tests/, backend/tests/    Tests du cœur et de l'API
 ├── docs/                     Format CSV, captures
@@ -179,6 +184,14 @@ Méthode de calcul détaillée : [`METHODE.md`](METHODE.md).
   le bêta de Dimson : un écart signale ce biais.
 - **Taux sans risque** : marche de 8,5 points de base au raccord EONIA / €STR du 01/10/2019 (voir METHODE.md).
   Si la BCE est injoignable et sans cache, le calcul se fait avec un taux nul et le signale.
+- **Diversification** :
+  - les poids sont réels (date de valorisation), mais le drawdown du simulateur suppose des poids constants : c'est
+    une hypothèse de simulation, pas le portefeuille réel ;
+  - avec des lignes à historique partiel, la covariance par paires suivie de la projection de Higham est une
+    adaptation, signalée par un garde-fou ;
+  - l'ENB par ACP est instable quand les valeurs propres sont proches (portefeuille déjà diversifié) ;
+  - la démo, à un seul facteur commun, surestime la corrélation entre Nasdaq et MSCI World (0,96 contre environ 0,85
+    à 0,90 en réalité).
 - **Bases d'annualisation** : rendement annualisé en jours calendaires (365), volatilité et ratios en séances (252)
   ou en semaines (52), selon la convention de chaque mesure.
 - **Petits écarts d'arrondi** entre la courbe de valeur (flottants) et les totaux (`Decimal`) : au plus

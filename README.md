@@ -237,3 +237,7 @@ L'application Streamlit d'origine (portefeuille théorique à poids constants) r
 .venv\Scripts\streamlit run legacy\app.py
 .venv\Scripts\python legacy\report.py --demo     # rapport HTML autonome
 ```
+
+## Licence
+
+[MIT](LICENSE). Outil d'analyse personnel, fourni sans garantie : ce n'est pas un conseil en investissement.

@@ -132,9 +132,13 @@ QQQ donne +20,766 %, contre +20,773 % pour la clôture ajustée de Yahoo (métho
 **Incertitude.** Intervalle de confiance à 95 % du Sharpe (quotidien) et du ratio d'information (hebdomadaire),
 **robuste à l'autocorrélation**, d'après Lo (2002, rendements non i.i.d., estimateur GMM). Avec $\theta = (\mu, \sigma^2)$
 et $SR = g(\theta) = \mu/\sigma$ :
-$$h_t = \big(r_t - \mu,\ (r_t - \mu)^2 - \sigma^2\big), \qquad
+
+```math
+h_t = \big(r_t - \mu,\ (r_t - \mu)^2 - \sigma^2\big), \qquad
 S = \Gamma_0 + \sum_{j=1}^{L}\Big(1 - \tfrac{j}{L+1}\Big)(\Gamma_j + \Gamma_j^\top), \qquad
-V = \nabla g^\top S\, \nabla g,\ \ \nabla g = \Big(\tfrac{1}{\sigma},\ -\tfrac{\mu}{2\sigma^3}\Big),$$
+V = \nabla g^\top S\, \nabla g,\ \ \nabla g = \Big(\tfrac{1}{\sigma},\ -\tfrac{\mu}{2\sigma^3}\Big),
+```
+
 avec $\Gamma_j$ l'autocovariance d'ordre $j$ des moments et $L = \lfloor 4\,(n/100)^{2/9} \rfloor$ retards (Newey et West :
 6 pour 3 ans de séances, 4 pour 3 ans de semaines). Puis $SE_p = \sqrt{V/n}$ et $IC = SR \pm 1{,}96\, SE_p \sqrt{A}$,
 centré sur le Sharpe affiché.
@@ -280,7 +284,7 @@ vente) sont un actif financier comme la trésorerie : leurs revenus ne sont pas 
 de la VE. Champ `lt_investments`, lu chez Yahoo (ligne « Investmentin Financial Assets ») ou saisi à la main. Les
 participations mises en équivalence (« Long Term Equity Investment », par exemple la part d'ASML dans Carl Zeiss SMT)
 ne sont pas retranchées : ce sont des participations opérationnelles, pas des placements. Exemple : Apple détient
-77,7 Md$ de titres négociables non courants au 27/09/2025 (10-K), en plus de 54,7 Md$ de trésorerie et placements
+77,7 Md USD de titres négociables non courants au 27/09/2025 (10-K), en plus de 54,7 Md USD de trésorerie et placements
 courants ; les ignorer surestimerait la VE de 1,5 % et le g implicite de 0,2 point (22,8 % au lieu de 22,6 %).
 Absent chez le fournisseur, le champ reste « manquant » (jamais 0). Le calcul n'est pas bloqué, parce que la plupart
 des sociétés n'en ont pas de significatifs, mais les placements ne sont pas retranchés et un avertissement le dit :
@@ -316,11 +320,11 @@ vérification dans le rapport annuel.
   La dette inclut donc les dettes locatives. Si elles manquent : calcul bloqué, saisie demandée (0 si aucune).
 - **US GAAP (ASC 842)** : les loyers des locations simples sont déjà déduits de l'OCF. La dette **exclut** donc les
   dettes locatives. Les locations-financement (faibles chez les sociétés détenues) sont exclues elles aussi : limite
-  mineure (Apple : 1,2 Md$ pour une VE d'environ 5 260 Md$).
+  mineure (Apple : 1,2 Md USD pour une VE d'environ 5 260 Md USD).
 
 **Dette financière : construite, pas lue.** La ligne « Total Debt » de Yahoo n'a pas le même périmètre selon la
-société. Elle inclut les dettes locatives pour LVMH et NVIDIA, pas pour Apple (98,7 Md$ = emprunts et billets de
-trésorerie seuls, alors que le 10-K publie 12,5 Md$ de locations simples). On construit donc :
+société. Elle inclut les dettes locatives pour LVMH et NVIDIA, pas pour Apple (98,7 Md USD = emprunts et billets de
+trésorerie seuls, alors que le 10-K publie 12,5 Md USD de locations simples). On construit donc :
 - dette financière = « Long Term Debt » + « Current Debt » (à défaut : « Current Debt And Capital Lease Obligation »
   − « Current Capital Lease Obligation ») ;
 - dettes locatives = « Capital Lease Obligations » (à défaut : long terme + courant).
@@ -373,7 +377,7 @@ nulle à perpétuité. Elle reste sous la croissance nominale de long terme (inf
 
 **Recoupement réel** (données Yahoo lues par l'application le 24/10/2026, contre les publications des sociétés).
 
-*Apple (US GAAP), 10-K de l'exercice clos le 27/09/2025, chiffres XBRL de la SEC (accession 0000320193-25-000079), en Md$ :*
+*Apple (US GAAP), 10-K de l'exercice clos le 27/09/2025, chiffres XBRL de la SEC (accession 0000320193-25-000079), en Md USD :*
 
 | Poste | 10-K 2025 | Yahoo 2025 | 10-K 2024 | Yahoo 2024 | Écart |
 |---|---|---|---|---|---|
@@ -391,10 +395,10 @@ nulle à perpétuité. Elle reste sous la croissance nominale de long terme (inf
 
 - **Intérêts** : depuis l'exercice 2024, Apple ne publie plus sa charge d'intérêts à part (elle est incluse dans
   « Other income/(expense), net »). Le blocage est donc juste, et l'approximation OCF − capex est la seule voie sans
-  invention. Avec environ 99 Md$ de dette, l'effet est faible devant un FCFF de 90 Md$.
-- **Placements non courants** : 77,7 Md$ dans le 10-K, identiques chez Yahoo (« Investmentin Financial Assets »),
+  invention. Avec environ 99 Md USD de dette, l'effet est faible devant un FCFF de 90 Md USD.
+- **Placements non courants** : 77,7 Md USD dans le 10-K, identiques chez Yahoo (« Investmentin Financial Assets »),
   désormais lus et retranchés de la VE (champ `lt_investments`). Le recalcul indépendant ci-dessous date d'avant ce
-  champ ; avec lui, la VE passe de 5 262 à 5 184 Md$ et le g implicite de 22,8 % à 22,6 %.
+  champ ; avec lui, la VE passe de 5 262 à 5 184 Md USD et le g implicite de 22,8 % à 22,6 %.
 - **Minoritaires** : Apple n'en a pas ; Yahoo ne publie pas la ligne, à saisir 0.
 
 *LVMH (IFRS), communiqué des résultats annuels 2025 du 27/01/2026, en M€ :*
@@ -421,7 +425,7 @@ et mêmes taux (FRED 4,96 % et BCE 3,38 % au 22/10/2026, prime 5 %, N = 10, $g_{
 
 | Titre | Hypothèses | FCF₀ | VE | g indépendant | g application |
 |---|---|---|---|---|---|
-| AAPL | US GAAP, OCF − capex, rémunération en actions retranchée, k = 9,96 % | 90,59 Md$ | 5 261,5 Md$ | 22,8289 % | 22,8289 % |
+| AAPL | US GAAP, OCF − capex, rémunération en actions retranchée, k = 9,96 % | 90,59 Md USD | 5 261,5 Md USD | 22,8289 % | 22,8289 % |
 | MC.PA | IFRS, intérêts en exploitation, sans rémunération en actions, k = 8,38 % | 13,51 Md€ | 217,8 Md€ | 2,1213 % | 2,1213 % |
 
 Écart entre les deux calculs : moins de $10^{-15}$.
@@ -436,21 +440,21 @@ k = 9,16 %, N = 10, $g_{term}$ = 2 %, rémunération en actions déduite, approx
 
 | Élément | Valeur |
 |---|---|
-| FCFF 2023 / 2024 / 2025 (OCF − capex − rémunération en actions) | 88,75 / 97,12 / 85,90 Md$ |
-| FCFF de départ (moyenne) | 90,59 Md$ |
-| Rémunération en actions déduite (moyenne) | 11,80 Md$, soit 11,5 % du flux avant déduction |
-| VE = 5 217,6 (capitalisation) + 98,7 (dette) − 54,7 (trésorerie) − 77,7 (placements non courants) | 5 183,8 Md$ |
+| FCFF 2023 / 2024 / 2025 (OCF − capex − rémunération en actions) | 88,75 / 97,12 / 85,90 Md USD |
+| FCFF de départ (moyenne) | 90,59 Md USD |
+| Rémunération en actions déduite (moyenne) | 11,80 Md USD, soit 11,5 % du flux avant déduction |
+| VE = 5 217,6 (capitalisation) + 98,7 (dette) − 54,7 (trésorerie) − 77,7 (placements non courants) | 5 183,8 Md USD |
 | Multiple VE / FCF de départ | 57,2 (rendement du flux : 1,75 %) |
 | g implicite | 20,7 % par an pendant 10 ans |
 | sans déduire la rémunération en actions | multiple 50,6, g 19,1 % |
-| Charge d'intérêts | publiée par Yahoo jusqu'en 2023 (3,93 Md$), manquante en 2024 et 2025 |
+| Charge d'intérêts | publiée par Yahoo jusqu'en 2023 (3,93 Md USD), manquante en 2024 et 2025 |
 | avec une prime de 5 % (k = 9,96 %) | g 22,6 % |
 
 Lecture : le calcul est juste (recoupé deux fois), mais l'hypothèse qu'il révèle est très éloignée de l'historique.
-20,7 % par an pendant 10 ans multiplie le flux par 6,6, à environ 600 Md$ en 2035, soit 1,4 fois le chiffre d'affaires
-de 2025 (416 Md$), alors que le FCFF n'a pas progressé sur 4 exercices et le chiffre d'affaires de 3 % par an environ.
+20,7 % par an pendant 10 ans multiplie le flux par 6,6, à environ 600 Md USD en 2035, soit 1,4 fois le chiffre d'affaires
+de 2025 (416 Md USD), alors que le FCFF n'a pas progressé sur 4 exercices et le chiffre d'affaires de 3 % par an environ.
 L'approximation OCF − capex biaise g vers le haut, mais faiblement : en reprenant la dernière charge publiée
-(3,9 Md$ en 2023, soit 3,2 Md$ après impôt) comme ordre de grandeur, g passe de 20,7 % à 20,3 %. Le prix ne s'explique donc, dans ce modèle, que par une croissance future bien supérieure au
+(3,9 Md USD en 2023, soit 3,2 Md USD après impôt) comme ordre de grandeur, g passe de 20,7 % à 20,3 %. Le prix ne s'explique donc, dans ce modèle, que par une croissance future bien supérieure au
 passé, ou par un coût du capital nettement plus bas que 9 %. C'est une lecture du prix, pas un avis sur le titre.
 
 ### Limites

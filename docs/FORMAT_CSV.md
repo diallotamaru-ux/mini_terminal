@@ -20,7 +20,7 @@ Un fichier par import, une ligne par opération. Exemple complet : [`examples/tr
 
 ## Divisions d'actions
 
-Saisissez les quantités et prix **d'origine**, tels qu'ils figuraient sur l'avis d'opération : 2 NVDA à 900 $
+Saisissez les quantités et prix **d'origine**, tels qu'ils figuraient sur l'avis d'opération : 2 NVDA à 900 USD
 achetées avant la division par 10 de juin 2024 se saisissent `2;900`, pas `20;90`. L'application ajuste au calcul
 à partir de l'historique des divisions, et liste chaque ajustement sur la page Positions.
 

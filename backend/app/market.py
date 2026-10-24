@@ -22,7 +22,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from terminal.errors import ProviderUnavailable
-from terminal.marketdata.base import InstrumentInfo, MarketDataProvider, PriceSeries
+from terminal.marketdata.base import Fundamentals, InstrumentInfo, MarketDataProvider, PriceSeries
 from terminal.marketdata.rates import RateProvider
 from terminal.splits import Split
 
@@ -115,6 +115,9 @@ class CachedProvider(_SeriesCache, MarketDataProvider):
         return self._get(f"DIV:{ticker}", ticker, start, end,
                          lambda s, e: self.inner.dividends(ticker, s, e))
 
+    def fundamentals(self, ticker: str) -> Fundamentals:
+        return self.inner.fundamentals(ticker)
+
     def splits(self, ticker: str) -> list[Split]:
         symbol = f"SPLITS:{ticker}"
         with self.sessions() as s:
@@ -151,3 +154,7 @@ class CachedRates(_SeriesCache, RateProvider):
     def overnight(self, series: str, start: date, end: date) -> PriceSeries:
         return self._get(f"RATE:{series.upper()}", series.upper(), start, end,
                          lambda s, e: self.inner.overnight(series, s, e))
+
+    def long_yield(self, currency: str, start: date, end: date) -> PriceSeries:
+        return self._get(f"YIELD10:{currency}", f"{currency}10Y", start, end,
+                         lambda s, e: self.inner.long_yield(currency, s, e))

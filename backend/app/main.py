@@ -45,7 +45,10 @@ def create_app(settings: Settings | None = None, provider: MarketDataProvider | 
             rates = SimulatedRates()
         else:
             from terminal.marketdata.ecb import EcbRates
-            rates = EcbRates()
+            from terminal.marketdata.fred import FredRates
+            from terminal.marketdata.rates import CombinedRates
+            ecb = EcbRates()
+            rates = CombinedRates(ecb, {"EUR": ecb, "USD": FredRates()})
     cached_rates = CachedRates(rates, db.sessionmaker, ttl=timedelta(minutes=settings.cache_ttl_minutes))
     state = AppState(settings=settings, db=db, provider=cached, rates=cached_rates)
     if settings.demo:

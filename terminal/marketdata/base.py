@@ -15,6 +15,10 @@ Conventions
 - `dividends(ticker)` renvoie les dividendes bruts par action, datés de leur
   ex-date, dans la devise de cotation et dans l'unité des cours (ajustés des
   divisions). Ils servent à construire les références dividendes réinvestis.
+- `fundamentals(ticker)` renvoie les comptes annuels publiés (un exercice par
+  ligne), dans la devise des comptes, montants en unités (pas en milliers).
+  Une valeur absente est NaN, jamais 0. Les décaissements (capex) sont
+  négatifs, comme dans le tableau des flux.
 - Index : dates calendaires sans fuseau horaire, triées, sans doublon.
 """
 
@@ -51,6 +55,47 @@ class PriceSeries:
         return None if s.empty else pd.Timestamp(s.index[-1]).date()
 
 
+# Champs des comptes annuels, dans l'ordre d'affichage.
+FUNDAMENTAL_FIELDS = (
+    "revenue",            # chiffre d'affaires
+    "ocf",                # flux de trésorerie d'exploitation
+    "capex",              # investissements corporels et incorporels (négatif)
+    "fcf_reported",       # flux disponible publié par le fournisseur (OCF + capex)
+    "sbc",                # rémunération en actions
+    "interest_expense",   # charge d'intérêts
+    "pretax_income",      # résultat avant impôt
+    "tax_provision",      # impôt sur les résultats
+    "total_debt",         # dette financière totale, dettes locatives comprises si publiées
+    "lease_liabilities",  # dettes locatives
+    "cash_sti",           # trésorerie et placements à court terme
+    "minority_interest",  # intérêts minoritaires
+    "diluted_shares",     # nombre moyen d'actions dilué de l'exercice
+)
+
+
+@dataclass(frozen=True)
+class Fundamentals:
+    ticker: str
+    currency: str | None          # devise des comptes (peut différer de la devise de cotation)
+    quote_type: str | None        # EQUITY, ETF, CRYPTOCURRENCY...
+    sector: str | None
+    industry: str | None
+    table: pd.DataFrame           # index : fins d'exercice ; colonnes : FUNDAMENTAL_FIELDS ; NaN = manquant
+    source: str
+    simulated: bool = False
+    fetched_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+def fundamentals_frame(rows: dict[str, pd.Series]) -> pd.DataFrame:
+    """Assemble les séries par champ en un tableau trié par exercice, toutes colonnes présentes."""
+    df = pd.DataFrame({f: rows.get(f, pd.Series(dtype=float)) for f in FUNDAMENTAL_FIELDS}, dtype=float)
+    idx = pd.DatetimeIndex(df.index)
+    if idx.tz is not None:
+        idx = idx.tz_localize(None)
+    df.index = idx.normalize()
+    return df.sort_index().dropna(how="all")
+
+
 def clean_series(s: pd.Series) -> pd.Series:
     """Normalise un index de cours : dates sans fuseau, triées, uniques, NaN retirés."""
     s = s.astype(float)
@@ -85,3 +130,7 @@ class MarketDataProvider(ABC):
     @abstractmethod
     def dividends(self, ticker: str, start: date, end: date) -> PriceSeries:
         """Dividendes bruts par action sur [start, end], indexés par ex-date. Série vide s'il n'y en a pas."""
+
+    @abstractmethod
+    def fundamentals(self, ticker: str) -> Fundamentals:
+        """Comptes annuels publiés. Lève UnknownTicker ou ProviderUnavailable."""

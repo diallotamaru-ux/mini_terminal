@@ -15,9 +15,22 @@ import pandas as pd
 
 from ..errors import MissingCurrency, ProviderUnavailable, UnknownTicker
 from ..splits import Split
-from .base import InstrumentInfo, MarketDataProvider, PriceSeries, clean_series
+from .base import Fundamentals, InstrumentInfo, MarketDataProvider, PriceSeries, clean_series, fundamentals_frame
 
 SOURCE = "Yahoo Finance"
+
+# Correspondance explicite des lignes Yahoo (comptes annuels) vers nos champs. Une ligne
+# absente reste absente : aucun champ n'est déduit d'un autre.
+FUNDAMENTAL_ROWS = {
+    "cashflow": {"Operating Cash Flow": "ocf", "Capital Expenditure": "capex",
+                 "Free Cash Flow": "fcf_reported", "Stock Based Compensation": "sbc"},
+    "income_stmt": {"Total Revenue": "revenue", "Interest Expense": "interest_expense",
+                    "Pretax Income": "pretax_income", "Tax Provision": "tax_provision",
+                    "Diluted Average Shares": "diluted_shares"},
+    "balance_sheet": {"Total Debt": "total_debt", "Capital Lease Obligations": "lease_liabilities",
+                      "Cash Cash Equivalents And Short Term Investments": "cash_sti",
+                      "Minority Interest": "minority_interest"},
+}
 
 
 def _yf():
@@ -120,3 +133,26 @@ class YahooProvider(MarketDataProvider):
             s = s / 100.0
         s = s.loc[pd.Timestamp(start):pd.Timestamp(end)] if len(s) else s
         return PriceSeries(ticker, s, SOURCE)
+
+    def fundamentals(self, ticker: str) -> Fundamentals:
+        yf = _yf()
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                t = yf.Ticker(ticker)
+                info = t.get_info() or {}
+                statements = {name: getattr(t, name) for name in FUNDAMENTAL_ROWS}
+        except Exception as e:
+            raise ProviderUnavailable("yahoo", str(e)) from e
+        if not info and all(df is None or df.empty for df in statements.values()):
+            raise UnknownTicker(ticker)
+        rows: dict[str, pd.Series] = {}
+        for name, mapping in FUNDAMENTAL_ROWS.items():
+            df = statements[name]
+            if df is None or df.empty:
+                continue
+            for label, f in mapping.items():
+                if label in df.index:
+                    rows[f] = pd.to_numeric(df.loc[label], errors="coerce")
+        return Fundamentals(ticker, info.get("financialCurrency"), info.get("quoteType"), info.get("sector"),
+                            info.get("industry"), fundamentals_frame(rows), SOURCE)

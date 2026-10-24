@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from backend.app.config import Settings
 from backend.app.main import create_app
 from terminal.errors import MissingCurrency, ProviderUnavailable, UnknownTicker
-from terminal.marketdata.base import InstrumentInfo, MarketDataProvider, PriceSeries
+from terminal.marketdata.base import Fundamentals, InstrumentInfo, MarketDataProvider, PriceSeries, fundamentals_frame
 from terminal.marketdata.rates import RateProvider
 from terminal.splits import Split
 
@@ -37,6 +37,7 @@ class FixedProvider(MarketDataProvider):
         self.down: set[str] = {"DOWN.PA"}
         self.split_data: dict[str, list[Split]] = {}
         self.dividend_data: dict[str, pd.Series] = {}
+        self.fundamental_data: dict[str, dict] = {}
         self.calls: list[str] = []
 
     def _series(self, steps, start, end):
@@ -78,6 +79,16 @@ class FixedProvider(MarketDataProvider):
             raise UnknownTicker(ticker)
         return InstrumentInfo(ticker, self.currency[ticker], name=f"Titre {ticker}")
 
+    def fundamentals(self, ticker):
+        self.calls.append(f"FUND:{ticker}")
+        if ticker in self.down:
+            raise ProviderUnavailable("fixe", "panne simulée")
+        if ticker not in self.currency:
+            raise UnknownTicker(ticker)
+        spec = self.fundamental_data.get(ticker, {})
+        return Fundamentals(ticker, spec.get("currency"), spec.get("quote_type", "EQUITY"), spec.get("sector"),
+                            spec.get("industry"), fundamentals_frame(spec.get("rows", {})), "Comptes de test")
+
 
 class FixedRates(RateProvider):
     """Taux au jour le jour constant (en %), ou panne si `down`."""
@@ -87,6 +98,7 @@ class FixedRates(RateProvider):
 
     def __init__(self, estr=2.0, eonia=-0.3):
         self.levels = {"estr": estr, "eonia": eonia}
+        self.long = {"EUR": 3.0, "USD": 4.5}
         self.down = False
 
     def overnight(self, series, start, end):
@@ -96,6 +108,12 @@ class FixedRates(RateProvider):
         if series == "estr":
             idx = idx[idx >= pd.Timestamp("2019-10-01")]
         return PriceSeries(series.upper(), pd.Series(self.levels[series], index=idx, dtype=float), "Taux de test")
+
+    def long_yield(self, currency, start, end):
+        if self.down or currency not in self.long:
+            raise ProviderUnavailable("taux-fixes", f"pas de taux long {currency}")
+        return PriceSeries(f"{currency}10Y", pd.Series(self.long[currency], index=pd.bdate_range(start, end),
+                                                       dtype=float), "Taux longs de test")
 
 
 @pytest.fixture

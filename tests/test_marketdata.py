@@ -109,7 +109,20 @@ class FakeTicker:
     def get_info(self):
         if self._spec.get("no_name"):
             raise RuntimeError("quota")
-        return {"longName": f"Nom {self.symbol}", "exchange": "NMS"}
+        return {"longName": f"Nom {self.symbol}", "exchange": "NMS", **self._spec.get("info", {})}
+
+    def _statement(self, name):
+        if self._spec.get("statements_error"):
+            raise RuntimeError("panne réseau")
+        rows = self._spec.get("statements", {}).get(name)
+        if rows is None:
+            return pd.DataFrame()
+        cols = pd.DatetimeIndex(["2025-12-31", "2024-12-31"])
+        return pd.DataFrame(rows, index=cols).T                # lignes = postes, colonnes = exercices
+
+    cashflow = property(lambda self: self._statement("cashflow"))
+    income_stmt = property(lambda self: self._statement("income_stmt"))
+    balance_sheet = property(lambda self: self._statement("balance_sheet"))
 
 
 @pytest.fixture
@@ -132,6 +145,15 @@ def yahoo(monkeypatch):
         "CHFEUR=X": {},
         "QUIET": {"currency": "EUR", "closes": [1.0], "no_name": True},
         "BROKEN": {"info_error": True},
+        "FUND.PA": {"currency": "EUR",
+                    "info": {"financialCurrency": "EUR", "quoteType": "EQUITY", "sector": "Industrials",
+                             "industry": "Aerospace & Defense"},
+                    "statements": {
+                        "cashflow": {"Operating Cash Flow": [120.0, 100.0], "Capital Expenditure": [-20.0, -15.0],
+                                     "Free Cash Flow": [100.0, 85.0], "Unrelated Row": [1.0, 2.0]},
+                        "income_stmt": {"Total Revenue": [1000.0, 900.0], "Interest Expense": [None, 4.0]},
+                        "balance_sheet": {"Total Debt": [300.0, 320.0]}}},
+        "FUNDDOWN": {"currency": "EUR", "statements_error": True},
     }
     return YahooProvider()
 
@@ -258,3 +280,41 @@ def test_demo_prices_two_factor_model():
         th = 0.04 * (prof[i][2] * prof[j][2] + prof[i][3] * prof[j][3]) / (prof[i][1] * prof[j][1])
         assert c.loc[i, j] == pytest.approx(th, abs=0.02), (i, j)
 
+
+def test_yahoo_fundamentals_mapping(yahoo):
+    from terminal.marketdata.base import FUNDAMENTAL_FIELDS
+    f = yahoo.fundamentals("FUND.PA")
+    assert (f.currency, f.quote_type, f.industry, f.source) == ("EUR", "EQUITY", "Aerospace & Defense", "Yahoo Finance")
+    t = f.table
+    assert list(t.columns) == list(FUNDAMENTAL_FIELDS)
+    assert list(t.index) == [pd.Timestamp("2024-12-31"), pd.Timestamp("2025-12-31")]        # triés
+    assert t.loc["2025-12-31", "ocf"] == 120.0 and t.loc["2025-12-31", "capex"] == -20.0
+    assert t.loc["2024-12-31", "interest_expense"] == 4.0
+    # Absent chez le fournisseur : manquant (NaN), jamais zéro, et jamais déduit d'un autre poste.
+    assert pd.isna(t.loc["2025-12-31", "interest_expense"])
+    assert t["sbc"].isna().all() and t["minority_interest"].isna().all()
+
+
+def test_yahoo_fundamentals_errors(yahoo):
+    with pytest.raises(ProviderUnavailable):
+        yahoo.fundamentals("FUNDDOWN")
+    with pytest.raises(ProviderUnavailable):
+        yahoo.fundamentals("BROKEN")
+    empty = yahoo.fundamentals("AAPL")                 # pas de comptes : tableau vide, pas d'erreur
+    assert empty.table.empty and empty.quote_type is None
+
+
+def test_simulated_fundamentals(sim):
+    f = sim.fundamentals("AAPL")
+    assert f.simulated and f.currency == "USD" and f.quote_type == "EQUITY" and len(f.table) == 5
+    t = f.table
+    assert t.index[-1] == pd.Timestamp("2025-09-30")
+    assert (t["fcf_reported"] == t["ocf"] + t["capex"]).all()
+    assert t["interest_expense"].iloc[-2:].isna().all() and t["minority_interest"].isna().all()
+    assert sim.fundamentals("MC.PA").table["sbc"].isna().all()
+    assert sim.fundamentals("NVDA").table.index[-1] == pd.Timestamp("2026-01-31")
+    etf = sim.fundamentals("CW8.PA")
+    assert etf.quote_type == "ETF" and etf.table.empty
+    assert sim.fundamentals("BTC-EUR").quote_type == "CRYPTOCURRENCY"
+    with pytest.raises(UnknownTicker):
+        sim.fundamentals("pas un ticker!")

@@ -113,3 +113,77 @@ def test_ecb_http_errors(monkeypatch):
         def read(self): return CSV.encode()
     monkeypatch.setattr(ecb.urllib.request, "urlopen", lambda req, timeout: Resp())
     assert p._get("https://ecb.test/x") == CSV
+
+
+def test_ecb_long_yield(monkeypatch):
+    p = EcbRates()
+    urls = []
+    monkeypatch.setattr(p, "_get", lambda url: urls.append(url) or CSV)
+    s = p.long_yield("EUR", date(2026, 10, 20), date(2026, 10, 22))
+    assert s.ticker == "EUR10Y" and s.closes.tolist() == [2.44, 2.442]
+    assert "YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_10Y" in urls[0]
+    with pytest.raises(ProviderUnavailable):
+        p.long_yield("USD", date(2026, 10, 20), date(2026, 10, 22))
+
+
+def test_fred_long_yield(monkeypatch):
+    from terminal.marketdata import fred
+    from terminal.marketdata.fred import FredRates
+
+    class Resp:
+        def __init__(self, body):
+            self.body = body.encode()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return self.body
+
+    seen = []
+
+    def ok(req, timeout):
+        seen.append(req)
+        return Resp("observation_date,DGS10\n2026-10-19,4.10\n2026-10-20,.\n2026-10-21,4.15\n")
+    monkeypatch.setattr(fred.urllib.request, "urlopen", ok)
+    p = FredRates()
+    s = p.long_yield("USD", date(2026, 10, 19), date(2026, 10, 21))
+    assert s.closes.tolist() == [4.10, 4.15] and s.source == fred.SOURCE      # « . » = pas de cotation
+    assert "id=DGS10" in seen[0].full_url and "cosd=2026-10-19" in seen[0].full_url
+    assert "Mozilla" in seen[0].get_header("User-agent")
+    with pytest.raises(ProviderUnavailable):
+        p.long_yield("EUR", date(2026, 10, 19), date(2026, 10, 21))
+    with pytest.raises(ProviderUnavailable):
+        p.overnight("estr", date(2026, 10, 19), date(2026, 10, 21))
+    monkeypatch.setattr(fred.urllib.request, "urlopen", lambda r, timeout: Resp("autre,format\n1,2\n"))
+    with pytest.raises(ProviderUnavailable):
+        p.long_yield("USD", date(2026, 10, 19), date(2026, 10, 21))
+
+    def boom(exc):
+        def f(*a, **k):
+            raise exc
+        return f
+    monkeypatch.setattr(fred.urllib.request, "urlopen", boom(urllib.error.HTTPError("u", 500, "x", {}, None)))
+    with pytest.raises(ProviderUnavailable):
+        p.long_yield("USD", date(2026, 10, 19), date(2026, 10, 21))
+    monkeypatch.setattr(fred.urllib.request, "urlopen", boom(TimeoutError("lent")))
+    with pytest.raises(ProviderUnavailable):
+        p.long_yield("USD", date(2026, 10, 19), date(2026, 10, 21))
+
+
+def test_simulated_and_combined_long_yield():
+    from terminal.marketdata.rates import CombinedRates, SimulatedRates
+    sim = SimulatedRates()
+    s = sim.long_yield("EUR", date(2026, 10, 1), date(2026, 10, 9))
+    assert s.simulated and s.closes.iloc[0] == pytest.approx(2.70)
+    with pytest.raises(ProviderUnavailable):
+        sim.long_yield("JPY", date(2026, 10, 1), date(2026, 10, 9))
+    c = CombinedRates(sim, {"USD": sim})
+    assert c.name == "simule"
+    assert c.long_yield("USD", date(2026, 10, 1), date(2026, 10, 2)).closes.iloc[0] == pytest.approx(4.20)
+    assert not c.overnight("estr", date(2026, 10, 1), date(2026, 10, 2)).closes.empty
+    with pytest.raises(ProviderUnavailable):
+        c.long_yield("EUR", date(2026, 10, 1), date(2026, 10, 2))

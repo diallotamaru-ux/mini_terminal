@@ -147,3 +147,17 @@ def test_var_cvar_ordering():
     rng = np.random.default_rng(7)
     r = pd.Series(rng.standard_t(4, 50_000) * 0.01)
     assert m.historical_cvar(r) >= m.historical_var(r) > 0
+
+
+def test_cut_after_gap_stops_cumulative_curve():
+    """Revue : 100 → 110 → manquant → 130 → 143. La courbe affichait 121 à la fin au lieu de s'interrompre."""
+    idx = pd.date_range("2024-01-01", periods=6, freq="D")
+    r = pd.Series([np.nan, 0.10, np.nan, 130 / 110 - 1, 0.10, 0.0], index=idx)
+    cut, gap = m.cut_after_gap(r)
+    assert gap == idx[2]
+    w = m.cumulative_index(cut)
+    assert w.iloc[1] == pytest.approx(110.0) and w.iloc[2:].isna().all()       # NaN de tête conservé, coupure ensuite
+    full = pd.Series([np.nan, 0.1, 0.1], index=idx[:3])
+    assert m.cut_after_gap(full)[1] is None and m.cut_after_gap(full)[0].equals(full)
+    assert m.cut_after_gap(pd.Series([np.nan, np.nan], index=idx[:2]))[1] is None
+

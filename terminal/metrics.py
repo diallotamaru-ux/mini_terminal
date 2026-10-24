@@ -43,6 +43,25 @@ def cumulative_index(returns: pd.Series | pd.DataFrame, base: float = 100.0):
     return base * (1.0 + returns).cumprod()
 
 
+def cut_after_gap(returns: pd.Series) -> tuple[pd.Series, pd.Timestamp | None]:
+    """
+    Série coupée au premier rendement manquant qui suit le début (les NaN de tête, avant le premier jour actif,
+    sont conservés). Une courbe cumulée ne doit pas traverser un trou comme si le rendement manquant valait 0 :
+    après le trou, le niveau est inconnu. Renvoie la série et la date du trou (None s'il n'y en a pas).
+    """
+    valid = returns.notna().to_numpy()
+    if not valid.any():
+        return returns, None
+    start = int(np.argmax(valid))
+    gaps = np.flatnonzero(~valid[start:])
+    if not gaps.size:
+        return returns, None
+    cut = start + int(gaps[0])
+    out = returns.copy()
+    out.iloc[cut:] = np.nan
+    return out, pd.Timestamp(returns.index[cut])
+
+
 def total_return(returns: pd.Series) -> float:
     """R_total = prod(1 + r_t) - 1."""
     return float((1.0 + returns).prod() - 1.0)

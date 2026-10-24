@@ -174,12 +174,13 @@ def risk_out(snap: Snapshot, provider: MarketDataProvider, rates: RateProvider, 
                                            is_reference=(i == reference)), grid[0].date() if len(grid) else None))
 
     # Courbes : base 100 (TWR), drawdown, volatilité glissante — sur la grille, base au jour `base`.
+    # Base 100 et drawdown sont interrompus au premier rendement manquant : au-delà, le niveau est inconnu.
     def base100(r: pd.Series) -> pd.Series:
-        s = m.cumulative_index(r.reindex(grid))
+        s = m.cumulative_index(m.cut_after_gap(r.reindex(grid))[0])
         return pd.concat([pd.Series([100.0], index=[pd.Timestamp(base)]), s])
 
     def dd(r: pd.Series) -> pd.Series:
-        rr = r.reindex(grid)
+        rr = m.cut_after_gap(r.reindex(grid))[0]
         return pd.concat([pd.Series([0.0], index=[pd.Timestamp(base)]),
                           m.drawdown_series(rr.fillna(0.0)).where(rr.notna())])
 
@@ -189,6 +190,12 @@ def risk_out(snap: Snapshot, provider: MarketDataProvider, rates: RateProvider, 
     p_full = port.reindex(grid)                # avant le premier jour actif : NaN (pas de courbe)
     names = {i: settings.reference(i).name for i in (1, 2)}
     dates = [pd.Timestamp(base).date()] + [d.date() for d in grid]
+
+    for label, r_ in [("Portefeuille", port)] + [(settings.reference(i).name, refs[i]) for i in (1, 2)]:
+        gap = m.cut_after_gap(r_.reindex(grid))[1]
+        if gap is not None:
+            warnings.append(f"{label} : rendement manquant le {_fr_date(gap.date())}, courbes base 100 et "
+                            f"drawdown interrompues à cette date (le niveau suivant est inconnu).")
 
     meta = snap.meta()
     for s_ in ref_sources:

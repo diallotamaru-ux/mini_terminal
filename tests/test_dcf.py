@@ -300,6 +300,7 @@ def test_long_term_investments_subtracted_like_cash():
     a = Assumptions(k=0.09, standard="us_gaap")
     base = dcf.enterprise_value(table(y2025={**FULL, "lt_investments": np.nan}), 100.0, 1.0, a)
     assert base.lt_investments is None and "non courants manquants" in base.warnings[-1]
+    assert "VE surestimée, donc g implicite surestimé" in base.warnings[-1]             # sens du biais explicite
     with_lt = dcf.enterprise_value(table(y2025={**FULL, "lt_investments": 70.0}), 100.0, 1.0, a)
     assert with_lt.lt_investments == 70.0 and with_lt.ev == base.ev - 70.0
     assert not any("non courants" in w for w in with_lt.warnings)

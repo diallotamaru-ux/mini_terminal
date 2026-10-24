@@ -278,8 +278,8 @@ def enterprise_value(table: pd.DataFrame, price: float, fx: float, a: Assumption
     lt = None if pd.isna(row["lt_investments"]) else float(row["lt_investments"])
     if lt is None:
         warnings.append("Placements financiers non courants manquants chez le fournisseur : non retranchés de la VE. "
-                        "Si la société en détient, la VE et le g implicite sont surestimés. Saisissez-les (0 si "
-                        "aucun) dans le tableau des comptes.")
+                        "Sens du biais, si la société en détient : VE surestimée, donc g implicite surestimé. "
+                        "Saisissez-les (0 si aucun) dans le tableau des comptes.")
     cap = price * fx * float(row["diluted_shares"])
     ev = cap + debt - float(row["cash_sti"]) - (lt or 0.0) + (minority or 0.0)
     return EnterpriseValue(price, fx, float(row["diluted_shares"]), cap, debt, rule, float(row["cash_sti"]), lt,

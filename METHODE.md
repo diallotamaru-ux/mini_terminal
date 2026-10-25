@@ -1,7 +1,7 @@
 ### Conventions
 
 - **Rendements simples quotidiens** : $r_t = P_t / P_{t-1} - 1$, avec $P_t$ le cours de clôture ajusté des dividendes et divisions d'actions.
-- **Annualisation** sur $A = 252$ séances pour une série de séances de bourse effectives (portefeuille théorique, `legacy/`). Le portefeuille réel est mesuré sur une grille de jours ouvrés du lundi au vendredi, fériés compris (rendement nul ces jours-là), soit $A = 261$ points par an ($365{,}25 	imes 5/7$) : voir « Risque et comparaison ». Le taux sans risque annuel $r_f$ est converti en taux quotidien $r_{f,d} = (1 + r_f)^{1/A} - 1$.
+- **Annualisation** sur $A = 252$ séances pour une série de séances de bourse effectives (portefeuille théorique, `legacy/`). Le portefeuille réel est mesuré sur une grille de jours ouvrés du lundi au vendredi, fériés compris (rendement nul ces jours-là), soit $A = 261$ points par an ($365.25 \times 5/7$) : voir « Risque et comparaison ». Le taux sans risque annuel $r_f$ est converti en taux quotidien $r_{f,d} = (1 + r_f)^{1/A} - 1$.
 - **Calendriers** : seules les dates où tous les actifs cotent sont conservées. Le rendement du lundi d'une crypto inclut donc son week-end : le rendement total reste exact, mais la volatilité quotidienne de la crypto est légèrement lissée.
 - **Portefeuille** : $r_{p,t} = \sum_i w_i\, r_{i,t}$, avec $w_i$ le poids de l'actif $i$. Cela suppose un rééquilibrage quotidien. Un portefeuille réel, non rééquilibré, voit ses poids dériver. Cette hypothèse ne sert qu'au portefeuille théorique (`legacy/`). Le portefeuille réel est calculé à partir des transactions : voir la section suivante.
 

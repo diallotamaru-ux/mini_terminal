@@ -140,7 +140,7 @@ V = \nabla g^\top S\, \nabla g,\ \ \nabla g = \Big(\tfrac{1}{\sigma},\ -\tfrac{\
 ```
 
 avec $\Gamma_j$ l'autocovariance d'ordre $j$ des moments et $L = \lfloor 4\,(n/100)^{2/9} \rfloor$ retards (Newey et West :
-6 pour 3 ans de séances, 4 pour 3 ans de semaines). Puis $SE_p = \sqrt{V/n}$ et $IC = SR \pm 1{,}96\, SE_p \sqrt{A}$,
+6 pour 3 ans de séances, 4 pour 3 ans de semaines). Puis $SE_p = \sqrt{V/n}$ et $IC = SR \pm 1,96\, SE_p \sqrt{A}$,
 centré sur le Sharpe affiché.
 
 Version i.i.d., conservée en comparaison (`metrics.sharpe_ci`) : $V = 1 + SR_p^2/2$, que l'on retrouve exactement
@@ -230,7 +230,7 @@ aussi les variances, ce qui réduit le poids du bitcoin (volatilité 65 %) dans 
 
 **Données de démonstration.** Modèle à deux facteurs indépendants (marché mondial et technologie, volatilité 20 %
 chacun), plus un bruit propre à chaque ligne, avec des queues épaisses (Student à 4 degrés de liberté). La corrélation
-théorique vaut $\rho_{ij} = 0{,}2^2\,(\beta_i\beta_j + \gamma_i\gamma_j)/(\sigma_i\sigma_j)$, avec $\beta$ l'exposition
+théorique vaut $\rho_{ij} = 0,2^2\,(\beta_i\beta_j + \gamma_i\gamma_j)/(\sigma_i\sigma_j)$, avec $\beta$ l'exposition
 au marché et $\gamma$ l'exposition à la technologie (testé sur un long échantillon). Le facteur technologie sépare le
 Nasdaq du MSCI World : corrélation hebdomadaire en EUR de 0,86 sur 2021-2026, au lieu de 0,96 avec un seul facteur
 (environ 0,85 à 0,90 en réalité). Ces données sont fictives.
@@ -356,7 +356,7 @@ $VE \le 0$, pas de solution dans l'intervalle.
   publiée va de 3,30 % à 5,67 % selon la méthode. Source et date sont affichées dans les Réglages ; la valeur reste
   modifiable. À mettre à jour à la main : l'application ne la télécharge pas.
 - **k MEDAF** (option des réglages, et toujours affiché à côté sur la fiche) :
-  - $k_e = r_f + \beta_{Blume} \times \text{prime}$, avec $\beta_{Blume} = 0{,}67\,\beta + 0{,}33$, $\beta$ de Dimson
+  - $k_e = r_f + \beta_{Blume} \times \text{prime}$, avec $\beta_{Blume} = 0,67\,\beta + 0,33$, $\beta$ de Dimson
     hebdomadaire sur 5 ans en EUR contre le MSCI World ;
   - $k_d$ = intérêts / dette moyenne des deux derniers bilans, après impôt ;
   - pondérations aux valeurs de marché (capitalisation, dette) ;
@@ -432,7 +432,7 @@ et mêmes taux (FRED 4,96 % et BCE 3,38 % au 22/10/2026, prime 5 %, N = 10, $g_{
 
 **Contrôle de vraisemblance.** La fiche affiche, à côté du g implicite, le multiple $VE / FCF_0$ observé. Les deux
 disent la même chose sous deux formes : `implied_multiple(g, k, N, g_term)` = $V(g)$ pour $FCF_0 = 1$ redonne exactement
-le multiple observé (testé). Repère : avec $g = 0$, $k = 9{,}16\ \%$ et $g_{term} = 2\ \%$, le multiple vaut environ 12 ;
+le multiple observé (testé). Repère : avec $g = 0$, $k = 9,16\ \%$ et $g_{term} = 2\ \%$, le multiple vaut environ 12 ;
 un multiple de 50 ou plus suppose une croissance forte et longue.
 
 *Apple, vérification à la main (24/10/2026, réglages par défaut : prime 4,20 %, Treasury 4,96 % au 22/10/2026,
@@ -459,7 +459,7 @@ passé, ou par un coût du capital nettement plus bas que 9 %. C'est une lecture
 
 ### Limites
 
-- Toutes ces mesures sont des **estimations sur le passé**. Pour des rendements i.i.d., l'erreur-type du Sharpe estimé sur $n$ périodes vaut $\sqrt{(1 + S_p^2/2)/n}$, avec $S_p$ le Sharpe par période (Lo, 2002). En données quotidiennes, $S_p$ est petit et l'erreur-type du Sharpe annualisé se réduit à environ $1/\sqrt{T}$, avec $T$ la durée en années. Sur 5 ans : environ 0,45. Un Sharpe estimé de 0,8 a donc un intervalle de confiance à 95 % d'environ $0{,}8 \pm 1{,}96 \times 0{,}45$, soit $[-0{,}1\ ;\ 1{,}7]$.
+- Toutes ces mesures sont des **estimations sur le passé**. Pour des rendements i.i.d., l'erreur-type du Sharpe estimé sur $n$ périodes vaut $\sqrt{(1 + S_p^2/2)/n}$, avec $S_p$ le Sharpe par période (Lo, 2002). En données quotidiennes, $S_p$ est petit et l'erreur-type du Sharpe annualisé se réduit à environ $1/\sqrt{T}$, avec $T$ la durée en années. Sur 5 ans : environ 0,45. Un Sharpe estimé de 0,8 a donc un intervalle de confiance à 95 % d'environ $0,8 \pm 1,96 \times 0,45$, soit $[-0,1\ ;\ 1,7]$.
 - La VaR historique ne prévoit pas les crises absentes de l'échantillon.
 - Les données Yahoo Finance sont gratuites et non garanties : erreurs ponctuelles possibles.
 - Le DCF inversé dépend entièrement de $k$ et de $g_{term}$ (voir la sensibilité) : c'est une lecture du prix, pas une estimation de valeur.

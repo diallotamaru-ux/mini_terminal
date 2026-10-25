@@ -372,7 +372,7 @@ nulle à perpétuité. Elle reste sous la croissance nominale de long terme (inf
 - Croissance historique du FCFF (même définition) et du chiffre d'affaires : taux annuel composé sur les exercices
   disponibles, avec leur nombre ; « non significatif » si la valeur de départ ou d'arrivée est négative ou nulle ;
   « manquant » s'il y a moins de deux exercices. C'est un repère sur 3 à 4 ans, pas une prévision sur 10.
-- Sensibilité : $k \pm 1$ et $\pm 2$ points × $g_{\text{term}}$ ∈ {1 % ; 1,5 % ; 2 % ; 2,5 % ; 3 %}. Le g implicite croît
+- Sensibilité : $k \pm 1$ et $\pm 2$ points × $g_{\text{term}} \in (1\% ;\ 1.5\% ;\ 2\% ;\ 2.5\% ;\ 3\%)$. Le g implicite croît
   avec $k$ et décroît avec $g_{term}$ (testé). Une case impossible affiche sa raison, jamais un nombre.
 
 **Recoupement réel** (données Yahoo lues par l'application le 24/10/2026, contre les publications des sociétés).
